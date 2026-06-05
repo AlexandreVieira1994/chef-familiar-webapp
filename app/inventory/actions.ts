@@ -28,8 +28,8 @@ type Estimate = {
 
 const estimates: Array<{ words: string[]; value: Estimate }> = [
   { words: ["cenoura", "cenouras"], value: { category: "Legume", storage: "Frigorífico", days: 18, note: "Validade estimada automaticamente; usar antes se estiver mole, cortada ou com manchas." } },
-  { words: ["batata", "batatas"], value: { category: "Tubérculo", storage: "Despensa", days: 28, note: "Guardar em local fresco, escuro e seco; afastar de cebolas." } },
   { words: ["batata-doce", "batata doce"], value: { category: "Tubérculo", storage: "Despensa", days: 14, note: "Guardar em local fresco e seco; usar primeiro se tiver zonas moles." } },
+  { words: ["batata", "batatas"], value: { category: "Tubérculo", storage: "Despensa", days: 28, note: "Guardar em local fresco, escuro e seco; afastar de cebolas." } },
   { words: ["cebola", "cebolas"], value: { category: "Legume", storage: "Despensa", days: 30, note: "Guardar em local seco e ventilado." } },
   { words: ["alho"], value: { category: "Legume", storage: "Despensa", days: 45, note: "Guardar seco e ventilado." } },
   { words: ["tomate", "tomates"], value: { category: "Legume/fruto", storage: "Despensa", days: 7, note: "Se estiver muito maduro, refrigerar e usar em breve." } },
@@ -58,6 +58,71 @@ function estimateIngredient(input: string): Estimate {
   };
 }
 
+function buildEntry(ingredientName: string, quantity: number, unit: string, categoryInput = "", expiryInput = "", storageInput = "", notesInput = "") {
+  const estimate = estimateIngredient(ingredientName);
+  const category = categoryInput || estimate.category;
+  const storageLocation = storageInput || estimate.storage;
+  const notes = notesInput ? `${notesInput} | ${estimate.note}` : estimate.note;
+
+  return {
+    ingredient_name: ingredientName,
+    quantity_initial: quantity,
+    quantity_remaining: quantity,
+    unit,
+    category,
+    source: "App web",
+    expiry_date: expiryInput || addDays(estimate.days),
+    storage_location: storageLocation,
+    status: "disponivel",
+    notes
+  };
+}
+
+type ParsedItem = {
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+};
+
+function parseInventoryText(input: string): ParsedItem[] {
+  const cleaned = input
+    .replace(/\bcomprei\b/gi, "")
+    .replace(/\btrouxe\b/gi, "")
+    .replace(/\badicionei\b/gi, "")
+    .replace(/\be\b/gi, ",")
+    .replace(/\n/g, ",");
+
+  return cleaned
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const match = part.match(/^(\d+(?:[\.,]\d+)?)\s*(kg|g|gr|un|uni|unid|l|lt|ml|lata|latas|embalagem|embalagens|molho|molhos)?\s+(.+)$/i);
+      if (!match) return null;
+
+      const quantity = Number(match[1].replace(",", "."));
+      const rawUnit = (match[2] || "un").toLowerCase();
+      const ingredientName = match[3].trim();
+      const unitMap: Record<string, string> = {
+        gr: "g",
+        uni: "un",
+        unid: "un",
+        lt: "L",
+        lata: "un",
+        latas: "un",
+        embalagem: "un",
+        embalagens: "un",
+        molho: "un",
+        molhos: "un"
+      };
+      const unit = unitMap[rawUnit] ?? rawUnit;
+
+      if (!ingredientName || !Number.isFinite(quantity) || quantity <= 0) return null;
+      return { ingredientName, quantity, unit };
+    })
+    .filter((item): item is ParsedItem => Boolean(item));
+}
+
 export async function addInventoryEntry(formData: FormData) {
   if (!supabase) {
     throw new Error("Supabase is not configured");
@@ -71,25 +136,39 @@ export async function addInventoryEntry(formData: FormData) {
     throw new Error("Ingredient, quantity and unit are required");
   }
 
-  const estimate = estimateIngredient(ingredientName);
-  const expiryDate = text(formData.get("expiry_date"));
-  const category = text(formData.get("category")) || estimate.category;
-  const storageLocation = text(formData.get("storage_location")) || estimate.storage;
-  const userNotes = text(formData.get("notes"));
-  const notes = userNotes ? `${userNotes} | ${estimate.note}` : estimate.note;
-
-  const { error } = await supabase.from("inventory_entries").insert({
-    ingredient_name: ingredientName,
-    quantity_initial: quantity,
-    quantity_remaining: quantity,
+  const entry = buildEntry(
+    ingredientName,
+    quantity,
     unit,
-    category,
-    source: text(formData.get("source")) || "App web",
-    expiry_date: expiryDate || addDays(estimate.days),
-    storage_location: storageLocation,
-    status: "disponivel",
-    notes
-  });
+    text(formData.get("category")),
+    text(formData.get("expiry_date")),
+    text(formData.get("storage_location")),
+    text(formData.get("notes"))
+  );
+
+  const { error } = await supabase.from("inventory_entries").insert(entry);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/inventory");
+}
+
+export async function addInventoryFromText(formData: FormData) {
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
+
+  const input = text(formData.get("inventory_text"));
+  const parsed = parseInventoryText(input);
+
+  if (parsed.length === 0) {
+    throw new Error("No valid inventory items found");
+  }
+
+  const entries = parsed.map((item) => buildEntry(item.ingredientName, item.quantity, item.unit));
+  const { error } = await supabase.from("inventory_entries").insert(entries);
 
   if (error) {
     throw new Error(error.message);
