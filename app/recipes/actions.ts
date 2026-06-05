@@ -26,9 +26,18 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
     return { ok: false, message: "Avaliação inválida." };
   }
 
+  const updatePayload: Record<string, string> = {
+    status,
+    last_feedback_at: new Date().toISOString()
+  };
+
+  if (notes) {
+    updatePayload.feedback_notes = notes;
+  }
+
   const { error: updateError } = await supabase
     .from("recipes")
-    .update({ status })
+    .update(updatePayload)
     .eq("id", recipeId);
 
   if (updateError) return { ok: false, message: updateError.message };
@@ -53,5 +62,8 @@ export async function updateRecipeStatus(_previousState: RecipeStatusState, form
 }
 
 export async function updateRecipeStatusForm(formData: FormData) {
-  await saveRecipeStatus(formData);
+  const result = await saveRecipeStatus(formData);
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
 }
