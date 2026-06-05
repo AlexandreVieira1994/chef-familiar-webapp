@@ -1,5 +1,5 @@
 import { Card } from "@/components/card";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { markShoppingItemPurchased, undoShoppingItemPurchased } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,7 @@ function defaultUnit(unit: string | null) {
 }
 
 async function loadLatestShoppingList(): Promise<{ list: ShoppingList | null; items: ShoppingItem[] }> {
+  const supabase = getSupabase();
   if (!supabase) return { list: null, items: [] };
 
   const { data: list } = await supabase

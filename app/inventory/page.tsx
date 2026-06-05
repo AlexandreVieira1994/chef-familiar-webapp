@@ -1,5 +1,5 @@
 import { Card } from "@/components/card";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { addInventoryEntry, addInventoryFromText } from "./actions";
 
 type InventoryEntry = {
@@ -14,6 +14,7 @@ type InventoryEntry = {
 };
 
 async function loadInventory(): Promise<InventoryEntry[]> {
+  const supabase = getSupabase();
   if (!supabase) return [];
   const { data } = await supabase
     .from("inventory_entries")

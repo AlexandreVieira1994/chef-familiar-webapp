@@ -86,6 +86,17 @@ create table if not exists recipe_feedback (
   created_at timestamptz not null default now()
 );
 
+create table if not exists assistant_action_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_message text not null,
+  interpreted_intent text not null,
+  proposed_payload jsonb not null,
+  status text not null default 'proposed',
+  result jsonb,
+  error text,
+  created_at timestamptz not null default now()
+);
+
 alter table recipes enable row level security;
 alter table recipe_ingredients enable row level security;
 alter table inventory_entries enable row level security;
@@ -93,6 +104,7 @@ alter table shopping_lists enable row level security;
 alter table shopping_list_items enable row level security;
 alter table family_rules enable row level security;
 alter table recipe_feedback enable row level security;
+alter table assistant_action_logs enable row level security;
 
 drop policy if exists "public read recipes" on recipes;
 drop policy if exists "public update recipes" on recipes;
@@ -108,6 +120,9 @@ drop policy if exists "public update shopping items" on shopping_list_items;
 drop policy if exists "public read rules" on family_rules;
 drop policy if exists "public read recipe feedback" on recipe_feedback;
 drop policy if exists "public insert recipe feedback" on recipe_feedback;
+drop policy if exists "public read assistant logs" on assistant_action_logs;
+drop policy if exists "public insert assistant logs" on assistant_action_logs;
+drop policy if exists "public update assistant logs" on assistant_action_logs;
 
 create policy "public read recipes" on recipes for select using (true);
 create policy "public update recipes" on recipes for update using (true) with check (true);
@@ -123,3 +138,6 @@ create policy "public update shopping items" on shopping_list_items for update u
 create policy "public read rules" on family_rules for select using (true);
 create policy "public read recipe feedback" on recipe_feedback for select using (true);
 create policy "public insert recipe feedback" on recipe_feedback for insert with check (true);
+create policy "public read assistant logs" on assistant_action_logs for select using (true);
+create policy "public insert assistant logs" on assistant_action_logs for insert with check (true);
+create policy "public update assistant logs" on assistant_action_logs for update using (true) with check (true);

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type RecipeIngredient = {
   ingredient_name: string;
@@ -39,6 +39,7 @@ function keyFor(name: string, unit: string | null) {
 }
 
 export async function generateShoppingListFromRecipes(formData: FormData) {
+  const supabase = getSupabase();
   if (!supabase) throw new Error("Supabase is not configured");
 
   const recipeIds = formData.getAll("recipe_id").map((value) => text(value)).filter(Boolean);

@@ -1,5 +1,5 @@
 import { Card } from "@/components/card";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { generateShoppingListFromRecipes } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ type Recipe = {
 };
 
 async function loadRecipes(): Promise<Recipe[]> {
+  const supabase = getSupabase();
   if (!supabase) return [];
   const { data } = await supabase
     .from("recipes")

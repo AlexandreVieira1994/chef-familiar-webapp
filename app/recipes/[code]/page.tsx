@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/card";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +26,7 @@ type Recipe = {
 type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; blw_notes: string | null };
 
 async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: Ingredient[] } | null> {
+  const supabase = getSupabase();
   if (!supabase) return null;
   const { data: recipe } = await supabase
     .from("recipes")

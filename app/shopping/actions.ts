@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type ShoppingItem = {
   id: string;
@@ -59,6 +59,7 @@ function estimateStorage(category: string | null) {
 }
 
 export async function markShoppingItemPurchased(formData: FormData) {
+  const supabase = getSupabase();
   if (!supabase) throw new Error("Supabase is not configured");
 
   const itemId = text(formData.get("item_id"));
@@ -129,6 +130,7 @@ export async function markShoppingItemPurchased(formData: FormData) {
 }
 
 export async function undoShoppingItemPurchased(formData: FormData) {
+  const supabase = getSupabase();
   if (!supabase) throw new Error("Supabase is not configured");
 
   const itemId = text(formData.get("item_id"));

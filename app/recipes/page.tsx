@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/card";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ type Recipe = {
 };
 
 async function loadRecipes(): Promise<Recipe[]> {
+  const supabase = getSupabase();
   if (!supabase) return [];
   const { data } = await supabase
     .from("recipes")

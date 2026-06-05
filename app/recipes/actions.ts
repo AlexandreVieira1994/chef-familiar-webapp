@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 const allowedStatuses = new Set(["aprovada", "neutra", "a_melhorar", "rejeitada", "por_testar"]);
 
@@ -22,6 +22,7 @@ type FeedbackHistoryItem = {
 };
 
 async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> {
+  const supabase = getSupabase();
   if (!supabase) return { ok: false, message: "Supabase não configurada." };
 
   const recipeId = text(formData.get("recipe_id"));
