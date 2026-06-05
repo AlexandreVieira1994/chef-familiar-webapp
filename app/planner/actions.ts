@@ -92,7 +92,7 @@ export async function generateShoppingListFromRecipes(formData: FormData) {
 
   const shoppingRows: ShoppingRow[] = [];
 
-  for (const row of totals.values()) {
+  for (const row of Array.from(totals.values())) {
     if (row.planned_quantity === null || !row.planned_unit) {
       shoppingRows.push({ ...row, notes: row.notes ?? "Confirmar quantidade manualmente." });
       continue;
@@ -119,6 +119,7 @@ export async function generateShoppingListFromRecipes(formData: FormData) {
     .single();
 
   if (listError) throw new Error(listError.message);
+  if (!list) throw new Error("Não foi possível criar a lista de compras.");
 
   if (shoppingRows.length > 0) {
     const { error: itemsError } = await supabase
