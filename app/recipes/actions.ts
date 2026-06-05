@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const allowedStatuses = new Set(["aprovada", "neutra", "a_melhorar", "rejeitada", "por_testar"]);
@@ -56,9 +57,7 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
     feedback_history: newHistory
   };
 
-  if (notes) {
-    updatePayload.feedback_notes = notes;
-  }
+  if (notes) updatePayload.feedback_notes = notes;
 
   const { error: updateError } = await supabase
     .from("recipes")
@@ -75,8 +74,8 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
     created_at: now
   });
 
-  revalidatePath("/recipes");
-  revalidatePath(`/recipes/${recipeCode}`);
+  revalidatePath("/recipes", "page");
+  revalidatePath(`/recipes/${recipeCode}`, "page");
 
   return { ok: true, message: "Guardado." };
 }
@@ -87,7 +86,8 @@ export async function updateRecipeStatus(_previousState: RecipeStatusState, form
 
 export async function updateRecipeStatusForm(formData: FormData) {
   const result = await saveRecipeStatus(formData);
-  if (!result.ok) {
-    throw new Error(result.message);
-  }
+  if (!result.ok) throw new Error(result.message);
+
+  const returnTo = text(formData.get("return_to")) || "/recipes";
+  redirect(returnTo);
 }
