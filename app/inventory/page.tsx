@@ -1,6 +1,6 @@
 import { Card } from "@/components/card";
 import { supabase } from "@/lib/supabase";
-import { addInventoryEntry } from "./actions";
+import { addInventoryEntry, addInventoryFromText } from "./actions";
 
 type InventoryEntry = {
   id: string;
@@ -31,7 +31,24 @@ export default async function InventoryPage() {
         <h1 className="text-3xl font-bold">Inventário</h1>
         <p className="mt-2 text-neutral-600">Entradas de ingredientes, quantidades restantes, validade e local de armazenamento.</p>
       </div>
-      <Card title="Adicionar entrada">
+      <Card title="Adicionar por texto">
+        <form action={addInventoryFromText} className="space-y-3">
+          <label className="space-y-1 text-sm block">
+            <span className="font-medium">Texto de compra</span>
+            <textarea
+              name="inventory_text"
+              className="min-h-28 w-full rounded-lg border px-3 py-2"
+              placeholder="Ex: Comprei 1 kg batata, 6 ovos, 500 g brócolos e 2 latas de grão"
+              required
+            />
+          </label>
+          <p className="text-xs text-neutral-500">Formato atual recomendado: quantidade + unidade + ingrediente, separados por vírgulas.</p>
+          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">
+            Adicionar vários ingredientes
+          </button>
+        </form>
+      </Card>
+      <Card title="Adicionar entrada manual">
         <form action={addInventoryEntry} className="grid gap-4 md:grid-cols-3">
           <label className="space-y-1 text-sm">
             <span className="font-medium">Ingrediente *</span>
