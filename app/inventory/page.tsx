@@ -1,5 +1,6 @@
 import { Card } from "@/components/card";
 import { supabase } from "@/lib/supabase";
+import { addInventoryEntry } from "./actions";
 
 type InventoryEntry = {
   id: string;
@@ -30,6 +31,42 @@ export default async function InventoryPage() {
         <h1 className="text-3xl font-bold">Inventário</h1>
         <p className="mt-2 text-neutral-600">Entradas de ingredientes, quantidades restantes, validade e local de armazenamento.</p>
       </div>
+      <Card title="Adicionar entrada">
+        <form action={addInventoryEntry} className="grid gap-4 md:grid-cols-3">
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Ingrediente *</span>
+            <input name="ingredient_name" className="w-full rounded-lg border px-3 py-2" placeholder="Ex: Cenoura" required />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Quantidade *</span>
+            <input name="quantity_initial" type="number" step="0.01" min="0" className="w-full rounded-lg border px-3 py-2" placeholder="Ex: 500" required />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Unidade *</span>
+            <input name="unit" className="w-full rounded-lg border px-3 py-2" placeholder="g, kg, un, L" required />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Categoria</span>
+            <input name="category" className="w-full rounded-lg border px-3 py-2" placeholder="Legume, fruta, leguminosa..." />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Validade aproximada</span>
+            <input name="expiry_date" type="date" className="w-full rounded-lg border px-3 py-2" />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Local</span>
+            <input name="storage_location" className="w-full rounded-lg border px-3 py-2" placeholder="Frigorífico, despensa..." />
+          </label>
+          <label className="space-y-1 text-sm md:col-span-3">
+            <span className="font-medium">Notas</span>
+            <input name="notes" className="w-full rounded-lg border px-3 py-2" placeholder="Ex: comprado no Continente, biológico, aberto..." />
+          </label>
+          <input type="hidden" name="source" value="App web" />
+          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white md:col-span-3" type="submit">
+            Adicionar ao inventário
+          </button>
+        </form>
+      </Card>
       <Card title="Regra principal">
         <p className="text-sm text-neutral-600">Cada compra/entrada deve criar uma linha nova. Não consolidar ingredientes repetidos.</p>
       </Card>
