@@ -3,6 +3,9 @@ import { Card } from "@/components/card";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "./actions";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Recipe = {
   id: string;
   code: string;
@@ -45,6 +48,7 @@ export default async function RecipesPage() {
                 <th className="py-2 pr-4">Receita</th>
                 <th className="py-2 pr-4">Tipo</th>
                 <th className="py-2 pr-4">Custo</th>
+                <th className="py-2 pr-4">Estado atual</th>
                 <th className="py-2 pr-4">Última nota</th>
                 <th className="py-2 pr-4">Avaliação rápida</th>
               </tr>
@@ -60,11 +64,13 @@ export default async function RecipesPage() {
                   </td>
                   <td className="py-3 pr-4">{recipe.category}</td>
                   <td className="py-3 pr-4">{recipe.cost_level ?? "-"}</td>
+                  <td className="py-3 pr-4 font-medium">{recipe.status}</td>
                   <td className="py-3 pr-4 max-w-64 text-neutral-600">{recipe.feedback_notes || "-"}</td>
                   <td className="py-3 pr-4 min-w-[420px]">
                     <form action={updateRecipeStatusForm} className="grid gap-2 md:grid-cols-[150px_1fr_auto]">
                       <input type="hidden" name="recipe_id" value={recipe.id} />
                       <input type="hidden" name="recipe_code" value={recipe.code} />
+                      <input type="hidden" name="return_to" value="/recipes" />
                       <select name="status" className="rounded-lg border px-2 py-2 text-sm" defaultValue={recipe.status}>
                         <option value="por_testar">Por testar</option>
                         <option value="aprovada">Aprovada</option>
@@ -81,7 +87,7 @@ export default async function RecipesPage() {
                 </tr>
               ))}
               {recipes.length === 0 && (
-                <tr><td className="py-4 text-neutral-500" colSpan={6}>Sem receitas carregadas.</td></tr>
+                <tr><td className="py-4 text-neutral-500" colSpan={7}>Sem receitas carregadas.</td></tr>
               )}
             </tbody>
           </table>
