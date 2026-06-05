@@ -28,7 +28,14 @@ type Ingredient = {
   blw_notes: string | null;
 };
 
-async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: Ingredient[] } | null> {
+type Feedback = {
+  id: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+};
+
+async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: Ingredient[]; feedback: Feedback[] } | null> {
   if (!supabase) return null;
 
   const { data: recipe } = await supabase
@@ -45,7 +52,14 @@ async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: 
     .eq("recipe_id", recipe.id)
     .order("ingredient_name", { ascending: true });
 
-  return { recipe, ingredients: ingredients ?? [] };
+  const { data: feedback } = await supabase
+    .from("recipe_feedback")
+    .select("id, status, notes, created_at")
+    .eq("recipe_id", recipe.id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return { recipe, ingredients: ingredients ?? [], feedback: feedback ?? [] };
 }
 
 export default async function RecipeDetailPage({ params }: { params: Promise<{ code: string }> }) {
@@ -54,7 +68,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
 
   if (!result) notFound();
 
-  const { recipe, ingredients } = result;
+  const { recipe, ingredients, feedback } = result;
   const totalTime = (recipe.prep_time_min ?? 0) + (recipe.cook_time_min ?? 0);
 
   return (
@@ -90,6 +104,18 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         </form>
         <div className="mt-4 rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700">
           <strong>Última nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}
+        </div>
+      </Card>
+
+      <Card title="Histórico de feedback">
+        <div className="space-y-2 text-sm">
+          {feedback.map((item) => (
+            <div key={item.id} className="rounded-lg border bg-white p-3">
+              <div className="font-medium">{item.status} · {new Date(item.created_at).toLocaleString("pt-PT")}</div>
+              <div className="text-neutral-600">{item.notes || "Sem nota."}</div>
+            </div>
+          ))}
+          {feedback.length === 0 && <p className="text-neutral-500">Sem histórico de feedback.</p>}
         </div>
       </Card>
 
