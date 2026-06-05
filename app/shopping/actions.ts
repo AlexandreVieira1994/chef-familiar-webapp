@@ -12,10 +12,17 @@ type ShoppingItem = {
   category: string | null;
   purchased_status: string;
   notes: string | null;
+  inventory_entry_id: string | null;
 };
 
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function numberValue(value: FormDataEntryValue | null) {
+  const raw = text(value).replace(",", ".");
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function addDays(days: number) {
@@ -47,7 +54,7 @@ export async function markShoppingItemPurchased(formData: FormData) {
 
   const { data: item, error: itemError } = await supabase
     .from("shopping_list_items")
-    .select("id, ingredient_name, planned_quantity, planned_unit, category, purchased_status, notes")
+    .select("id, ingredient_name, planned_quantity, planned_unit, category, purchased_status, notes, inventory_entry_id")
     .eq("id", itemId)
     .single();
 
@@ -55,9 +62,10 @@ export async function markShoppingItemPurchased(formData: FormData) {
   if (!item) throw new Error("Item não encontrado.");
 
   const shoppingItem = item as ShoppingItem;
-  const quantity = Number(shoppingItem.planned_quantity ?? 0);
+  const requestedQuantity = Number(shoppingItem.planned_quantity ?? 0);
+  const purchasedQuantity = numberValue(formData.get("purchased_quantity")) || requestedQuantity;
 
-  if (quantity <= 0 || !shoppingItem.planned_unit) {
+  if (purchasedQuantity <= 0 || !shoppingItem.planned_unit) {
     throw new Error("Quantidade inválida para adicionar ao inventário.");
   }
 
@@ -69,25 +77,71 @@ export async function markShoppingItemPurchased(formData: FormData) {
   const expiryDate = addDays(estimateDays(shoppingItem.category));
   const storageLocation = estimateStorage(shoppingItem.category);
 
-  const { error: inventoryError } = await supabase.from("inventory_entries").insert({
-    ingredient_name: shoppingItem.ingredient_name,
-    quantity_initial: quantity,
-    quantity_remaining: quantity,
-    unit: shoppingItem.planned_unit,
-    category: shoppingItem.category,
-    source: "Lista de compras",
-    expiry_date: expiryDate,
-    storage_location: storageLocation,
-    status: "disponivel",
-    notes: shoppingItem.notes ? `Comprado via lista. ${shoppingItem.notes}` : "Comprado via lista de compras."
-  });
+  const { data: inventoryEntry, error: inventoryError } = await supabase
+    .from("inventory_entries")
+    .insert({
+      ingredient_name: shoppingItem.ingredient_name,
+      quantity_initial: purchasedQuantity,
+      quantity_remaining: purchasedQuantity,
+      unit: shoppingItem.planned_unit,
+      category: shoppingItem.category,
+      source: "Lista de compras",
+      expiry_date: expiryDate,
+      storage_location: storageLocation,
+      status: "disponivel",
+      notes: shoppingItem.notes ? `Comprado via lista. ${shoppingItem.notes}` : "Comprado via lista de compras."
+    })
+    .select("id")
+    .single();
 
   if (inventoryError) throw new Error(inventoryError.message);
+  if (!inventoryEntry) throw new Error("Não foi possível criar entrada no inventário.");
 
   const { error: updateError } = await supabase
     .from("shopping_list_items")
-    .update({ purchased_status: "comprado" })
+    .update({
+      purchased_status: "comprado",
+      purchased_quantity: purchasedQuantity,
+      inventory_entry_id: inventoryEntry.id
+    })
     .eq("id", shoppingItem.id);
+
+  if (updateError) throw new Error(updateError.message);
+
+  revalidatePath("/shopping", "page");
+  revalidatePath("/inventory", "page");
+  redirect("/shopping");
+}
+
+export async function undoShoppingItemPurchased(formData: FormData) {
+  if (!supabase) throw new Error("Supabase is not configured");
+
+  const itemId = text(formData.get("item_id"));
+  if (!itemId) throw new Error("Item inválido.");
+
+  const { data: item, error: itemError } = await supabase
+    .from("shopping_list_items")
+    .select("id, inventory_entry_id")
+    .eq("id", itemId)
+    .single();
+
+  if (itemError) throw new Error(itemError.message);
+
+  const inventoryEntryId = typeof item?.inventory_entry_id === "string" ? item.inventory_entry_id : "";
+
+  if (inventoryEntryId) {
+    const { error: inventoryError } = await supabase
+      .from("inventory_entries")
+      .update({ status: "anulado", quantity_remaining: 0, notes: "Entrada anulada ao desfazer compra na lista." })
+      .eq("id", inventoryEntryId);
+
+    if (inventoryError) throw new Error(inventoryError.message);
+  }
+
+  const { error: updateError } = await supabase
+    .from("shopping_list_items")
+    .update({ purchased_status: "nao_comprado", purchased_quantity: null, inventory_entry_id: null })
+    .eq("id", itemId);
 
   if (updateError) throw new Error(updateError.message);
 
