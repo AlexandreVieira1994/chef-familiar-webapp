@@ -24,38 +24,40 @@ function asNumber(value: unknown, fallback = 0) {
 function parseInventoryItems(value: unknown): AssistantInventoryItem[] {
   if (!Array.isArray(value)) return [];
 
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const record = item as Record<string, unknown>;
-      const ingredientName = asString(record.ingredient_name).trim();
-      const quantity = asNumber(record.quantity);
-      const unit = asString(record.unit, "un").trim();
+  const items: AssistantInventoryItem[] = [];
 
-      if (!ingredientName || quantity <= 0) return null;
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const ingredientName = asString(record.ingredient_name).trim();
+    const quantity = asNumber(record.quantity);
+    const unit = asString(record.unit, "un").trim();
 
-      const enriched = buildInventoryEntry(
-        ingredientName,
-        quantity,
-        unit,
-        asString(record.category),
-        asString(record.expiry_date),
-        asString(record.storage_location),
-        asString(record.notes),
-        "Assistente"
-      );
+    if (!ingredientName || quantity <= 0) continue;
 
-      return {
-        ingredient_name: enriched.ingredient_name,
-        quantity,
-        unit: enriched.unit,
-        category: enriched.category,
-        expiry_date: enriched.expiry_date,
-        storage_location: enriched.storage_location,
-        notes: enriched.notes
-      };
-    })
-    .filter((item): item is AssistantInventoryItem => Boolean(item));
+    const enriched = buildInventoryEntry(
+      ingredientName,
+      quantity,
+      unit,
+      asString(record.category),
+      asString(record.expiry_date),
+      asString(record.storage_location),
+      asString(record.notes),
+      "Assistente"
+    );
+
+    items.push({
+      ingredient_name: enriched.ingredient_name,
+      quantity,
+      unit: enriched.unit,
+      category: enriched.category,
+      expiry_date: enriched.expiry_date,
+      storage_location: enriched.storage_location,
+      notes: enriched.notes
+    });
+  }
+
+  return items;
 }
 
 function fallbackShoppingAnswer(context: Awaited<ReturnType<typeof loadAssistantContext>>): AssistantResponse {
