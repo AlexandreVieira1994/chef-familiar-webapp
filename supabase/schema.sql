@@ -70,25 +70,41 @@ create table if not exists family_rules (
   created_at timestamptz not null default now()
 );
 
+create table if not exists recipe_feedback (
+  id uuid primary key default gen_random_uuid(),
+  recipe_id uuid not null references recipes(id) on delete cascade,
+  status text not null,
+  rating integer,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 alter table recipes enable row level security;
 alter table recipe_ingredients enable row level security;
 alter table inventory_entries enable row level security;
 alter table shopping_lists enable row level security;
 alter table shopping_list_items enable row level security;
 alter table family_rules enable row level security;
+alter table recipe_feedback enable row level security;
 
 drop policy if exists "public read recipes" on recipes;
+drop policy if exists "public update recipes" on recipes;
 drop policy if exists "public read recipe ingredients" on recipe_ingredients;
 drop policy if exists "public read inventory" on inventory_entries;
 drop policy if exists "public insert inventory" on inventory_entries;
 drop policy if exists "public read shopping lists" on shopping_lists;
 drop policy if exists "public read shopping items" on shopping_list_items;
 drop policy if exists "public read rules" on family_rules;
+drop policy if exists "public read recipe feedback" on recipe_feedback;
+drop policy if exists "public insert recipe feedback" on recipe_feedback;
 
 create policy "public read recipes" on recipes for select using (true);
+create policy "public update recipes" on recipes for update using (true) with check (true);
 create policy "public read recipe ingredients" on recipe_ingredients for select using (true);
 create policy "public read inventory" on inventory_entries for select using (true);
 create policy "public insert inventory" on inventory_entries for insert with check (true);
 create policy "public read shopping lists" on shopping_lists for select using (true);
 create policy "public read shopping items" on shopping_list_items for select using (true);
 create policy "public read rules" on family_rules for select using (true);
+create policy "public read recipe feedback" on recipe_feedback for select using (true);
+create policy "public insert recipe feedback" on recipe_feedback for insert with check (true);
