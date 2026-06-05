@@ -149,7 +149,11 @@ export async function undoShoppingItemPurchased(formData: FormData) {
   if (inventoryEntryId) {
     const { error: inventoryError } = await supabase
       .from("inventory_entries")
-      .delete()
+      .update({
+        quantity_remaining: 0,
+        status: "removido",
+        notes: "Entrada anulada ao desfazer compra na lista."
+      })
       .eq("id", inventoryEntryId)
       .eq("source", "Lista de compras");
 
