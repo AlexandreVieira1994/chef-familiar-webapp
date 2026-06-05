@@ -1,6 +1,6 @@
 import { Card } from "@/components/card";
 import { supabase } from "@/lib/supabase";
-import { markShoppingItemPurchased } from "./actions";
+import { markShoppingItemPurchased, undoShoppingItemPurchased } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,6 +18,7 @@ type ShoppingItem = {
   planned_unit: string | null;
   category: string | null;
   purchased_status: string;
+  purchased_quantity: number | null;
   notes: string | null;
 };
 
@@ -35,7 +36,7 @@ async function loadLatestShoppingList(): Promise<{ list: ShoppingList | null; it
 
   const { data: items } = await supabase
     .from("shopping_list_items")
-    .select("id, ingredient_name, planned_quantity, planned_unit, category, purchased_status, notes")
+    .select("id, ingredient_name, planned_quantity, planned_unit, category, purchased_status, purchased_quantity, notes")
     .eq("shopping_list_id", list.id)
     .order("ingredient_name", { ascending: true });
 
@@ -71,18 +72,39 @@ export default async function ShoppingPage() {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id} className="border-b last:border-0">
+                <tr key={item.id} className="border-b last:border-0 align-top">
                   <td className="py-3 pr-4 font-medium">{item.ingredient_name}</td>
                   <td className="py-3 pr-4">{item.planned_quantity ?? "-"} {item.planned_unit ?? ""}</td>
                   <td className="py-3 pr-4">{item.category ?? "-"}</td>
-                  <td className="py-3 pr-4">{item.purchased_status}</td>
-                  <td className="py-3 pr-4">{item.notes ?? "-"}</td>
                   <td className="py-3 pr-4">
+                    {item.purchased_status}
+                    {item.purchased_status === "comprado" && item.purchased_quantity !== null && (
+                      <span className="block text-xs text-neutral-500">Comprado: {item.purchased_quantity} {item.planned_unit}</span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4">{item.notes ?? "-"}</td>
+                  <td className="py-3 pr-4 min-w-56">
                     {item.purchased_status === "comprado" ? (
-                      <span className="rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600">No inventário</span>
-                    ) : (
-                      <form action={markShoppingItemPurchased}>
+                      <form action={undoShoppingItemPurchased} className="flex items-center gap-2">
+                        <span className="rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600">No inventário</span>
                         <input type="hidden" name="item_id" value={item.id} />
+                        <button className="rounded-lg border px-3 py-2 text-xs font-medium" type="submit">
+                          Desfazer
+                        </button>
+                      </form>
+                    ) : (
+                      <form action={markShoppingItemPurchased} className="flex items-center gap-2">
+                        <input type="hidden" name="item_id" value={item.id} />
+                        <input
+                          name="purchased_quantity"
+                          className="w-24 rounded-lg border px-2 py-2 text-xs"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          defaultValue={item.planned_quantity ?? undefined}
+                          aria-label="Quantidade comprada"
+                        />
+                        <span className="text-xs text-neutral-500">{item.planned_unit ?? ""}</span>
                         <button className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" type="submit">
                           Marcar comprado
                         </button>
