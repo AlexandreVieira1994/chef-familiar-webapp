@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card } from "@/components/card";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -38,9 +39,13 @@ export default async function RecipesPage() {
             </thead>
             <tbody>
               {recipes.map((recipe) => (
-                <tr key={recipe.id} className="border-b last:border-0">
-                  <td className="py-3 pr-4 font-mono text-xs">{recipe.code}</td>
-                  <td className="py-3 pr-4 font-medium">{recipe.name}</td>
+                <tr key={recipe.id} className="border-b last:border-0 hover:bg-neutral-50">
+                  <td className="py-3 pr-4 font-mono text-xs">
+                    <Link href={`/recipes/${recipe.code}`} className="underline-offset-2 hover:underline">{recipe.code}</Link>
+                  </td>
+                  <td className="py-3 pr-4 font-medium">
+                    <Link href={`/recipes/${recipe.code}`} className="underline-offset-2 hover:underline">{recipe.name}</Link>
+                  </td>
                   <td className="py-3 pr-4">{recipe.category}</td>
                   <td className="py-3 pr-4">{recipe.status}</td>
                   <td className="py-3 pr-4">{recipe.cost_level ?? "-"}</td>
