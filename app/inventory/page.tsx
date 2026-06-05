@@ -165,8 +165,8 @@ export default async function InventoryPage() {
       <Card title="Inventário atual">
         <div className="space-y-3">
           {groups.map((group) => (
-            <details key={normalizeIngredientName(group.name)} className="rounded-lg border bg-white" open>
-              <summary className="grid cursor-pointer gap-2 px-4 py-3 text-sm md:grid-cols-[1fr_180px_160px_120px]">
+            <details key={normalizeIngredientName(group.name)} className="rounded-lg border bg-white" data-testid="inventory-ingredient-group" open>
+              <summary className="grid cursor-pointer gap-2 px-4 py-3 text-sm md:grid-cols-[1fr_180px_160px_120px]" data-testid="inventory-ingredient-summary">
                 <span className="font-semibold">{group.name}</span>
                 <span className="text-neutral-600">{summarizeQuantities(group.entries)}</span>
                 <span className="text-neutral-600">Validade: {earliestExpiry(group.entries)}</span>
@@ -190,9 +190,9 @@ export default async function InventoryPage() {
                   </thead>
                   <tbody>
                     {group.entries.map((entry, index) => (
-                      <tr key={entry.id} className="border-b last:border-0 align-top">
+                      <tr key={entry.id} className="border-b last:border-0 align-top" data-testid="inventory-entry-row">
                         <td className="py-3 pl-4 pr-3">
-                          <form id={`update-inventory-${entry.id}`} action={updateInventoryEntry} className="contents">
+                          <form id={`update-inventory-${entry.id}`} action={updateInventoryEntry} className="contents" data-testid="inventory-entry-update-form">
                             <input type="hidden" name="entry_id" value={entry.id} />
                             <input name="ingredient_name" className="w-40 rounded-lg border px-2 py-2 font-medium" defaultValue={entry.ingredient_name} required />
                           </form>
@@ -228,12 +228,12 @@ export default async function InventoryPage() {
                         </td>
                         <td className="py-3 pr-4">
                           <div className="flex gap-2">
-                            <button form={`update-inventory-${entry.id}`} className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" type="submit">
+                            <button form={`update-inventory-${entry.id}`} className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" data-testid="inventory-entry-save" type="submit">
                               Guardar
                             </button>
-                            <form action={deleteInventoryEntry}>
+                            <form action={deleteInventoryEntry} data-testid="inventory-entry-delete-form">
                               <input type="hidden" name="entry_id" value={entry.id} />
-                              <button className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700" type="submit">
+                              <button className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700" data-testid="inventory-entry-remove" type="submit">
                                 Remover
                               </button>
                             </form>
