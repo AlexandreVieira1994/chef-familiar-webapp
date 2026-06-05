@@ -14,6 +14,12 @@ export type RecipeStatusState = {
   message: string;
 };
 
+type FeedbackHistoryItem = {
+  status: string;
+  notes: string | null;
+  created_at: string;
+};
+
 async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> {
   if (!supabase) return { ok: false, message: "Supabase não configurada." };
 
@@ -27,9 +33,27 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
     return { ok: false, message: "Avaliação inválida." };
   }
 
-  const updatePayload: Record<string, string> = {
+  const { data: currentRecipe, error: readError } = await supabase
+    .from("recipes")
+    .select("feedback_history")
+    .eq("id", recipeId)
+    .single();
+
+  if (readError) return { ok: false, message: readError.message };
+
+  const currentHistory = Array.isArray(currentRecipe?.feedback_history)
+    ? (currentRecipe.feedback_history as FeedbackHistoryItem[])
+    : [];
+
+  const newHistory: FeedbackHistoryItem[] = [
+    { status, notes: notes || null, created_at: now },
+    ...currentHistory
+  ].slice(0, 20);
+
+  const updatePayload: Record<string, unknown> = {
     status,
-    last_feedback_at: now
+    last_feedback_at: now,
+    feedback_history: newHistory
   };
 
   if (notes) {
@@ -43,7 +67,7 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
 
   if (updateError) return { ok: false, message: updateError.message };
 
-  const { error: feedbackError } = await supabase.from("recipe_feedback").insert({
+  await supabase.from("recipe_feedback").insert({
     recipe_id: recipeId,
     status,
     rating: null,
@@ -53,10 +77,6 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
 
   revalidatePath("/recipes");
   revalidatePath(`/recipes/${recipeCode}`);
-
-  if (feedbackError) {
-    return { ok: true, message: `Receita guardada, mas histórico falhou: ${feedbackError.message}` };
-  }
 
   return { ok: true, message: "Guardado." };
 }
