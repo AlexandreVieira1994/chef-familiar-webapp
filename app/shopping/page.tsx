@@ -1,5 +1,6 @@
 import { Card } from "@/components/card";
 import { supabase } from "@/lib/supabase";
+import { markShoppingItemPurchased } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -59,7 +60,14 @@ export default async function ShoppingPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b text-neutral-500">
-              <tr><th className="py-2 pr-4">Ingrediente</th><th className="py-2 pr-4">Quantidade a comprar</th><th className="py-2 pr-4">Categoria</th><th className="py-2 pr-4">Estado</th><th className="py-2 pr-4">Notas</th></tr>
+              <tr>
+                <th className="py-2 pr-4">Ingrediente</th>
+                <th className="py-2 pr-4">Quantidade a comprar</th>
+                <th className="py-2 pr-4">Categoria</th>
+                <th className="py-2 pr-4">Estado</th>
+                <th className="py-2 pr-4">Notas</th>
+                <th className="py-2 pr-4">Ação</th>
+              </tr>
             </thead>
             <tbody>
               {items.map((item) => (
@@ -69,13 +77,25 @@ export default async function ShoppingPage() {
                   <td className="py-3 pr-4">{item.category ?? "-"}</td>
                   <td className="py-3 pr-4">{item.purchased_status}</td>
                   <td className="py-3 pr-4">{item.notes ?? "-"}</td>
+                  <td className="py-3 pr-4">
+                    {item.purchased_status === "comprado" ? (
+                      <span className="rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600">No inventário</span>
+                    ) : (
+                      <form action={markShoppingItemPurchased}>
+                        <input type="hidden" name="item_id" value={item.id} />
+                        <button className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" type="submit">
+                          Marcar comprado
+                        </button>
+                      </form>
+                    )}
+                  </td>
                 </tr>
               ))}
               {!list && (
-                <tr><td className="py-4 text-neutral-500" colSpan={5}>Ainda não existe lista de compras.</td></tr>
+                <tr><td className="py-4 text-neutral-500" colSpan={6}>Ainda não existe lista de compras.</td></tr>
               )}
               {list && items.length === 0 && (
-                <tr><td className="py-4 text-neutral-500" colSpan={5}>Nada a comprar. O inventário cobre as receitas selecionadas.</td></tr>
+                <tr><td className="py-4 text-neutral-500" colSpan={6}>Nada a comprar. O inventário cobre as receitas selecionadas.</td></tr>
               )}
             </tbody>
           </table>
