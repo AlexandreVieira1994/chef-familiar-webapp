@@ -77,9 +77,16 @@ alter table shopping_lists enable row level security;
 alter table shopping_list_items enable row level security;
 alter table family_rules enable row level security;
 
-create policy if not exists "public read recipes" on recipes for select using (true);
-create policy if not exists "public read recipe ingredients" on recipe_ingredients for select using (true);
-create policy if not exists "public read inventory" on inventory_entries for select using (true);
-create policy if not exists "public read shopping lists" on shopping_lists for select using (true);
-create policy if not exists "public read shopping items" on shopping_list_items for select using (true);
-create policy if not exists "public read rules" on family_rules for select using (true);
+drop policy if exists "public read recipes" on recipes;
+drop policy if exists "public read recipe ingredients" on recipe_ingredients;
+drop policy if exists "public read inventory" on inventory_entries;
+drop policy if exists "public read shopping lists" on shopping_lists;
+drop policy if exists "public read shopping items" on shopping_list_items;
+drop policy if exists "public read rules" on family_rules;
+
+create policy "public read recipes" on recipes for select using (true);
+create policy "public read recipe ingredients" on recipe_ingredients for select using (true);
+create policy "public read inventory" on inventory_entries for select using (true);
+create policy "public read shopping lists" on shopping_lists for select using (true);
+create policy "public read shopping items" on shopping_list_items for select using (true);
+create policy "public read rules" on family_rules for select using (true);
