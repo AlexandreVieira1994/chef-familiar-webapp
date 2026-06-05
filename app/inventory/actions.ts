@@ -101,3 +101,63 @@ export async function addInventoryFromText(formData: FormData) {
 
   revalidatePath("/inventory");
 }
+
+export async function updateInventoryEntry(formData: FormData) {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
+
+  const entryId = text(formData.get("entry_id"));
+  const ingredientName = text(formData.get("ingredient_name"));
+  const quantityRemaining = numberValue(formData.get("quantity_remaining"));
+  const unit = text(formData.get("unit"));
+  const status = text(formData.get("status")) || "disponivel";
+
+  if (!entryId || !ingredientName || quantityRemaining < 0 || !unit) {
+    throw new Error("Entrada de inventário inválida.");
+  }
+
+  const { error } = await supabase
+    .from("inventory_entries")
+    .update({
+      ingredient_name: ingredientName,
+      quantity_remaining: quantityRemaining,
+      unit: normalizeUnit(unit),
+      category: text(formData.get("category")) || null,
+      expiry_date: text(formData.get("expiry_date")) || null,
+      storage_location: text(formData.get("storage_location")) || null,
+      status,
+      notes: text(formData.get("notes")) || null
+    })
+    .eq("id", entryId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/inventory");
+}
+
+export async function deleteInventoryEntry(formData: FormData) {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
+
+  const entryId = text(formData.get("entry_id"));
+  if (!entryId) {
+    throw new Error("Entrada de inventário inválida.");
+  }
+
+  const { error } = await supabase
+    .from("inventory_entries")
+    .delete()
+    .eq("id", entryId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/inventory");
+}
