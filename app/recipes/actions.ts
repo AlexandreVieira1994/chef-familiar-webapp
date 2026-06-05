@@ -14,7 +14,7 @@ export type RecipeStatusState = {
   message: string;
 };
 
-export async function updateRecipeStatus(_previousState: RecipeStatusState, formData: FormData): Promise<RecipeStatusState> {
+async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> {
   if (!supabase) return { ok: false, message: "Supabase não configurada." };
 
   const recipeId = text(formData.get("recipe_id"));
@@ -46,4 +46,12 @@ export async function updateRecipeStatus(_previousState: RecipeStatusState, form
   revalidatePath(`/recipes/${recipeCode}`);
 
   return { ok: true, message: "Guardado." };
+}
+
+export async function updateRecipeStatus(_previousState: RecipeStatusState, formData: FormData): Promise<RecipeStatusState> {
+  return saveRecipeStatus(formData);
+}
+
+export async function updateRecipeStatusForm(formData: FormData) {
+  await saveRecipeStatus(formData);
 }
