@@ -16,6 +16,7 @@ type Recipe = {
   blw_summary: string | null;
   separation_moment: string | null;
   notes: string | null;
+  feedback_notes: string | null;
 };
 
 type Ingredient = {
@@ -32,7 +33,7 @@ async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: 
 
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes")
+    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes, feedback_notes")
     .eq("code", code)
     .single();
 
@@ -87,6 +88,9 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
             Guardar avaliação
           </button>
         </form>
+        <div className="mt-4 rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700">
+          <strong>Última nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}
+        </div>
       </Card>
 
       <Card title="Ingredientes">
@@ -121,7 +125,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         </Card>
       </div>
 
-      <Card title="Notas">
+      <Card title="Notas da receita">
         <p className="text-sm text-neutral-700">{recipe.notes ?? "Sem notas."}</p>
       </Card>
     </div>
