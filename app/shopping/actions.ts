@@ -79,7 +79,7 @@ export async function markShoppingItemPurchased(formData: FormData) {
   const requestedUnit = text(formData.get("purchased_unit")) || shoppingItem.planned_unit || "un";
   const purchasedUnit = normalizeUnit(requestedUnit);
 
-  if (purchasedQuantity <= 0 || !purchasedUnit || !allowedUnits.has(requestedUnit) && !allowedUnits.has(purchasedUnit)) {
+  if (purchasedQuantity <= 0 || !purchasedUnit || (!allowedUnits.has(requestedUnit) && !allowedUnits.has(purchasedUnit))) {
     throw new Error("Quantidade ou unidade inválida para adicionar ao inventário.");
   }
 
@@ -147,8 +147,9 @@ export async function undoShoppingItemPurchased(formData: FormData) {
   if (inventoryEntryId) {
     const { error: inventoryError } = await supabase
       .from("inventory_entries")
-      .update({ status: "anulado", quantity_remaining: 0, notes: "Entrada anulada ao desfazer compra na lista." })
-      .eq("id", inventoryEntryId);
+      .delete()
+      .eq("id", inventoryEntryId)
+      .eq("source", "Lista de compras");
 
     if (inventoryError) throw new Error(inventoryError.message);
   }
