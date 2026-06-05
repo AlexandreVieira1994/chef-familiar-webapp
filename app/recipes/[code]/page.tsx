@@ -4,6 +4,9 @@ import { Card } from "@/components/card";
 import { supabase } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "../actions";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type HistoryItem = { status: string; notes: string | null; created_at: string };
 type Recipe = {
   id: string;
@@ -60,6 +63,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         <form action={updateRecipeStatusForm} className="grid gap-3 md:grid-cols-4">
           <input type="hidden" name="recipe_id" value={recipe.id} />
           <input type="hidden" name="recipe_code" value={recipe.code} />
+          <input type="hidden" name="return_to" value={`/recipes/${recipe.code}`} />
           <select name="status" className="rounded-lg border px-3 py-2 text-sm" defaultValue={recipe.status}>
             <option value="por_testar">Por testar</option>
             <option value="aprovada">Aprovada</option>
@@ -70,7 +74,8 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
           <input name="notes" className="rounded-lg border px-3 py-2 text-sm md:col-span-2" placeholder="Notas" />
           <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">Guardar</button>
         </form>
-        <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Última nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
+        <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Estado atual:</strong> {recipe.status}</p>
+        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Última nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
       </Card>
 
       <Card title="Histórico de feedback">
