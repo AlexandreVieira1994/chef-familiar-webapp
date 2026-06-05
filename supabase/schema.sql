@@ -15,6 +15,9 @@ create table if not exists recipes (
   created_at timestamptz not null default now()
 );
 
+alter table recipes add column if not exists feedback_notes text;
+alter table recipes add column if not exists last_feedback_at timestamptz;
+
 create table if not exists recipe_ingredients (
   id uuid primary key default gen_random_uuid(),
   recipe_id uuid not null references recipes(id) on delete cascade,
