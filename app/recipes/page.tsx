@@ -10,11 +10,15 @@ type Recipe = {
   category: string;
   status: string;
   cost_level: string | null;
+  feedback_notes: string | null;
 };
 
 async function loadRecipes(): Promise<Recipe[]> {
   if (!supabase) return [];
-  const { data } = await supabase.from("recipes").select("id, code, name, category, status, cost_level").order("code");
+  const { data } = await supabase
+    .from("recipes")
+    .select("id, code, name, category, status, cost_level, feedback_notes")
+    .order("code");
   return data ?? [];
 }
 
@@ -41,6 +45,7 @@ export default async function RecipesPage() {
                 <th className="py-2 pr-4">Receita</th>
                 <th className="py-2 pr-4">Tipo</th>
                 <th className="py-2 pr-4">Custo</th>
+                <th className="py-2 pr-4">Última nota</th>
                 <th className="py-2 pr-4">Avaliação rápida</th>
               </tr>
             </thead>
@@ -55,6 +60,7 @@ export default async function RecipesPage() {
                   </td>
                   <td className="py-3 pr-4">{recipe.category}</td>
                   <td className="py-3 pr-4">{recipe.cost_level ?? "-"}</td>
+                  <td className="py-3 pr-4 max-w-64 text-neutral-600">{recipe.feedback_notes || "-"}</td>
                   <td className="py-3 pr-4 min-w-[420px]">
                     <form action={updateRecipeStatusForm} className="grid gap-2 md:grid-cols-[150px_1fr_auto]">
                       <input type="hidden" name="recipe_id" value={recipe.id} />
@@ -75,7 +81,7 @@ export default async function RecipesPage() {
                 </tr>
               ))}
               {recipes.length === 0 && (
-                <tr><td className="py-4 text-neutral-500" colSpan={5}>Sem receitas carregadas.</td></tr>
+                <tr><td className="py-4 text-neutral-500" colSpan={6}>Sem receitas carregadas.</td></tr>
               )}
             </tbody>
           </table>
