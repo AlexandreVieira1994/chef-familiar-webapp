@@ -150,13 +150,23 @@ export async function deleteInventoryEntry(formData: FormData) {
     throw new Error("Entrada de inventário inválida.");
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("inventory_entries")
-    .delete()
-    .eq("id", entryId);
+    .update({
+      quantity_remaining: 0,
+      status: "removido",
+      notes: "Entrada removida pela app."
+    })
+    .eq("id", entryId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error("Não foi possível remover a entrada.");
   }
 
   revalidatePath("/inventory");

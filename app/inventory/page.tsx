@@ -56,7 +56,7 @@ function summarizeQuantities(entries: InventoryEntry[]) {
   const totals = new Map<string, number>();
 
   for (const entry of entries) {
-    if (entry.status !== "disponivel") continue;
+    if (entry.status !== "disponivel" || Number(entry.quantity_remaining) <= 0) continue;
     totals.set(entry.unit, (totals.get(entry.unit) ?? 0) + Number(entry.quantity_remaining ?? 0));
   }
 
@@ -80,9 +80,10 @@ function formatInitialQuantity(entry: InventoryEntry) {
 }
 
 export default async function InventoryPage() {
-  const entries = await loadInventory();
+  const allEntries = await loadInventory();
+  const entries = allEntries.filter((entry) => entry.status !== "removido");
   const groups = groupByIngredient(entries);
-  const availableEntries = entries.filter((entry) => entry.status === "disponivel");
+  const availableEntries = entries.filter((entry) => entry.status === "disponivel" && Number(entry.quantity_remaining) > 0);
   const lowOrEmptyEntries = entries.filter((entry) => Number(entry.quantity_remaining) <= 0 || entry.status !== "disponivel");
 
   return (
