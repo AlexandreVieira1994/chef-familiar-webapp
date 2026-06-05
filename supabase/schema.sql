@@ -67,6 +67,9 @@ create table if not exists shopping_list_items (
   created_at timestamptz not null default now()
 );
 
+alter table shopping_list_items add column if not exists purchased_quantity numeric;
+alter table shopping_list_items add column if not exists inventory_entry_id uuid references inventory_entries(id) on delete set null;
+
 create table if not exists family_rules (
   id uuid primary key default gen_random_uuid(),
   rule_key text unique not null,
@@ -96,6 +99,7 @@ drop policy if exists "public update recipes" on recipes;
 drop policy if exists "public read recipe ingredients" on recipe_ingredients;
 drop policy if exists "public read inventory" on inventory_entries;
 drop policy if exists "public insert inventory" on inventory_entries;
+drop policy if exists "public update inventory" on inventory_entries;
 drop policy if exists "public read shopping lists" on shopping_lists;
 drop policy if exists "public insert shopping lists" on shopping_lists;
 drop policy if exists "public read shopping items" on shopping_list_items;
@@ -110,6 +114,7 @@ create policy "public update recipes" on recipes for update using (true) with ch
 create policy "public read recipe ingredients" on recipe_ingredients for select using (true);
 create policy "public read inventory" on inventory_entries for select using (true);
 create policy "public insert inventory" on inventory_entries for insert with check (true);
+create policy "public update inventory" on inventory_entries for update using (true) with check (true);
 create policy "public read shopping lists" on shopping_lists for select using (true);
 create policy "public insert shopping lists" on shopping_lists for insert with check (true);
 create policy "public read shopping items" on shopping_list_items for select using (true);
