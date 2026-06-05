@@ -22,6 +22,12 @@ type ShoppingItem = {
   notes: string | null;
 };
 
+function defaultUnit(unit: string | null) {
+  const value = unit ?? "un";
+  if (["g", "kg", "ml", "L", "un"].includes(value)) return value;
+  return "un";
+}
+
 async function loadLatestShoppingList(): Promise<{ list: ShoppingList | null; items: ShoppingItem[] }> {
   if (!supabase) return { list: null, items: [] };
 
@@ -79,11 +85,11 @@ export default async function ShoppingPage() {
                   <td className="py-3 pr-4">
                     {item.purchased_status}
                     {item.purchased_status === "comprado" && item.purchased_quantity !== null && (
-                      <span className="block text-xs text-neutral-500">Comprado: {item.purchased_quantity} {item.planned_unit}</span>
+                      <span className="block text-xs text-neutral-500">Comprado: {item.purchased_quantity}</span>
                     )}
                   </td>
                   <td className="py-3 pr-4">{item.notes ?? "-"}</td>
-                  <td className="py-3 pr-4 min-w-56">
+                  <td className="py-3 pr-4 min-w-[360px]">
                     {item.purchased_status === "comprado" ? (
                       <form action={undoShoppingItemPurchased} className="flex items-center gap-2">
                         <span className="rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600">No inventário</span>
@@ -93,7 +99,7 @@ export default async function ShoppingPage() {
                         </button>
                       </form>
                     ) : (
-                      <form action={markShoppingItemPurchased} className="flex items-center gap-2">
+                      <form action={markShoppingItemPurchased} className="flex flex-wrap items-center gap-2">
                         <input type="hidden" name="item_id" value={item.id} />
                         <input
                           name="purchased_quantity"
@@ -104,7 +110,18 @@ export default async function ShoppingPage() {
                           defaultValue={item.planned_quantity ?? undefined}
                           aria-label="Quantidade comprada"
                         />
-                        <span className="text-xs text-neutral-500">{item.planned_unit ?? ""}</span>
+                        <select
+                          name="purchased_unit"
+                          className="rounded-lg border px-2 py-2 text-xs"
+                          defaultValue={defaultUnit(item.planned_unit)}
+                          aria-label="Unidade comprada"
+                        >
+                          <option value="g">g</option>
+                          <option value="kg">kg</option>
+                          <option value="ml">ml</option>
+                          <option value="L">L</option>
+                          <option value="un">un</option>
+                        </select>
                         <button className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" type="submit">
                           Marcar comprado
                         </button>
