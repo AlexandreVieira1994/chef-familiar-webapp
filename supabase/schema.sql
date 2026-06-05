@@ -1,0 +1,85 @@
+create extension if not exists pgcrypto;
+
+create table if not exists recipes (
+  id uuid primary key default gen_random_uuid(),
+  code text unique not null,
+  name text not null,
+  category text not null,
+  status text not null default 'por_testar',
+  prep_time_min integer,
+  cook_time_min integer,
+  cost_level text,
+  blw_summary text,
+  separation_moment text,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists recipe_ingredients (
+  id uuid primary key default gen_random_uuid(),
+  recipe_id uuid not null references recipes(id) on delete cascade,
+  ingredient_name text not null,
+  quantity numeric,
+  unit text,
+  category text,
+  optional boolean not null default false,
+  blw_notes text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists inventory_entries (
+  id uuid primary key default gen_random_uuid(),
+  entry_date date not null default current_date,
+  ingredient_name text not null,
+  quantity_initial numeric not null,
+  quantity_remaining numeric not null,
+  unit text not null,
+  category text,
+  source text,
+  expiry_date date,
+  storage_location text,
+  status text default 'disponivel',
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists shopping_lists (
+  id uuid primary key default gen_random_uuid(),
+  start_date date,
+  end_date date,
+  status text not null default 'rascunho',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists shopping_list_items (
+  id uuid primary key default gen_random_uuid(),
+  shopping_list_id uuid references shopping_lists(id) on delete cascade,
+  ingredient_name text not null,
+  planned_quantity numeric,
+  planned_unit text,
+  category text,
+  purchased_status text not null default 'nao_comprado',
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists family_rules (
+  id uuid primary key default gen_random_uuid(),
+  rule_key text unique not null,
+  rule_value text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table recipes enable row level security;
+alter table recipe_ingredients enable row level security;
+alter table inventory_entries enable row level security;
+alter table shopping_lists enable row level security;
+alter table shopping_list_items enable row level security;
+alter table family_rules enable row level security;
+
+create policy if not exists "public read recipes" on recipes for select using (true);
+create policy if not exists "public read recipe ingredients" on recipe_ingredients for select using (true);
+create policy if not exists "public read inventory" on inventory_entries for select using (true);
+create policy if not exists "public read shopping lists" on shopping_lists for select using (true);
+create policy if not exists "public read shopping items" on shopping_list_items for select using (true);
+create policy if not exists "public read rules" on family_rules for select using (true);
