@@ -21,6 +21,7 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
   const recipeCode = text(formData.get("recipe_code"));
   const status = text(formData.get("status"));
   const notes = text(formData.get("notes"));
+  const now = new Date().toISOString();
 
   if (!recipeId || !recipeCode || !allowedStatuses.has(status)) {
     return { ok: false, message: "Avaliação inválida." };
@@ -28,7 +29,7 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
 
   const updatePayload: Record<string, string> = {
     status,
-    last_feedback_at: new Date().toISOString()
+    last_feedback_at: now
   };
 
   if (notes) {
@@ -46,13 +47,16 @@ async function saveRecipeStatus(formData: FormData): Promise<RecipeStatusState> 
     recipe_id: recipeId,
     status,
     rating: null,
-    notes: notes || null
+    notes: notes || null,
+    created_at: now
   });
-
-  if (feedbackError) return { ok: false, message: feedbackError.message };
 
   revalidatePath("/recipes");
   revalidatePath(`/recipes/${recipeCode}`);
+
+  if (feedbackError) {
+    return { ok: true, message: `Receita guardada, mas histórico falhou: ${feedbackError.message}` };
+  }
 
   return { ok: true, message: "Guardado." };
 }
