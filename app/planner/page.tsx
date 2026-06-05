@@ -1,38 +1,61 @@
 import { Card } from "@/components/card";
+import { supabase } from "@/lib/supabase";
+import { generateShoppingListFromRecipes } from "./actions";
 
-export default function PlannerPage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Recipe = {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  category: string;
+};
+
+async function loadRecipes(): Promise<Recipe[]> {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("recipes")
+    .select("id, code, name, status, category")
+    .order("status", { ascending: true })
+    .order("code", { ascending: true });
+  return data ?? [];
+}
+
+export default async function PlannerPage() {
+  const recipes = await loadRecipes();
+  const preferred = recipes.filter((recipe) => recipe.status !== "rejeitada");
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Planeador</h1>
-        <p className="mt-2 text-neutral-600">Gera planos alimentares com opções, recomendação do chef, lista de compras e adaptação BLW.</p>
+        <p className="mt-2 text-neutral-600">Escolhe receitas e gera uma lista de compras ajustada ao inventário.</p>
       </div>
-      <Card title="Gerador de plano">
-        <form className="grid gap-4 md:grid-cols-3">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Número de dias</span>
-            <input className="w-full rounded-lg border px-3 py-2" type="number" defaultValue={7} min={1} max={14} />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Refeições</span>
-            <select className="w-full rounded-lg border px-3 py-2" defaultValue="almoco_jantar">
-              <option value="almoco_jantar">Almoço + jantar</option>
-              <option value="jantar">Só jantar</option>
-              <option value="almoco">Só almoço</option>
-            </select>
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Usar inventário</span>
-            <select className="w-full rounded-lg border px-3 py-2" defaultValue="sim">
-              <option value="sim">Sim</option>
-              <option value="nao">Não</option>
-            </select>
-          </label>
-          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white md:col-span-3" type="button">
-            Gerar plano com IA
+      <Card title="Gerar lista de compras por receitas">
+        <form action={generateShoppingListFromRecipes} className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            {preferred.map((recipe) => (
+              <label key={recipe.id} className="flex gap-3 rounded-lg border p-3 text-sm hover:bg-neutral-50">
+                <input type="checkbox" name="recipe_id" value={recipe.id} className="mt-1" />
+                <span>
+                  <span className="block font-medium">{recipe.code} · {recipe.name}</span>
+                  <span className="text-neutral-500">{recipe.category} · {recipe.status}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {preferred.length === 0 && <p className="text-sm text-neutral-500">Sem receitas disponíveis.</p>}
+          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">
+            Gerar lista de compras
           </button>
         </form>
-        <p className="mt-4 text-sm text-neutral-600">A ligação à IA será ativada depois de configurarmos a chave API na Vercel.</p>
+      </Card>
+      <Card title="Como funciona">
+        <p className="text-sm text-neutral-600">
+          A app soma os ingredientes das receitas escolhidas, compara com o inventário quando o ingrediente e a unidade coincidem, e grava apenas o que falta comprar.
+        </p>
       </Card>
     </div>
   );
