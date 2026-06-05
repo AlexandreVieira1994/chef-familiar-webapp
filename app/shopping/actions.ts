@@ -15,6 +15,8 @@ type ShoppingItem = {
   inventory_entry_id: string | null;
 };
 
+const allowedUnits = new Set(["g", "kg", "ml", "l", "L", "un", "uni", "unid", "embalagem", "embalagens", "lata", "latas"]);
+
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -23,6 +25,16 @@ function numberValue(value: FormDataEntryValue | null) {
   const raw = text(value).replace(",", ".");
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeUnit(value: string) {
+  const unit = value.trim();
+  if (unit === "l") return "L";
+  if (unit === "uni" || unit === "unid") return "un";
+  if (unit === "embalagens") return "un";
+  if (unit === "embalagem") return "un";
+  if (unit === "lata" || unit === "latas") return "un";
+  return unit;
 }
 
 function addDays(days: number) {
@@ -64,9 +76,11 @@ export async function markShoppingItemPurchased(formData: FormData) {
   const shoppingItem = item as ShoppingItem;
   const requestedQuantity = Number(shoppingItem.planned_quantity ?? 0);
   const purchasedQuantity = numberValue(formData.get("purchased_quantity")) || requestedQuantity;
+  const requestedUnit = text(formData.get("purchased_unit")) || shoppingItem.planned_unit || "un";
+  const purchasedUnit = normalizeUnit(requestedUnit);
 
-  if (purchasedQuantity <= 0 || !shoppingItem.planned_unit) {
-    throw new Error("Quantidade inválida para adicionar ao inventário.");
+  if (purchasedQuantity <= 0 || !purchasedUnit || !allowedUnits.has(requestedUnit) && !allowedUnits.has(purchasedUnit)) {
+    throw new Error("Quantidade ou unidade inválida para adicionar ao inventário.");
   }
 
   if (shoppingItem.purchased_status === "comprado") {
@@ -76,6 +90,7 @@ export async function markShoppingItemPurchased(formData: FormData) {
 
   const expiryDate = addDays(estimateDays(shoppingItem.category));
   const storageLocation = estimateStorage(shoppingItem.category);
+  const unitChangedNote = purchasedUnit !== shoppingItem.planned_unit ? ` Unidade comprada: ${purchasedQuantity} ${purchasedUnit}; unidade planeada: ${shoppingItem.planned_quantity ?? "-"} ${shoppingItem.planned_unit ?? "-"}.` : "";
 
   const { data: inventoryEntry, error: inventoryError } = await supabase
     .from("inventory_entries")
@@ -83,13 +98,13 @@ export async function markShoppingItemPurchased(formData: FormData) {
       ingredient_name: shoppingItem.ingredient_name,
       quantity_initial: purchasedQuantity,
       quantity_remaining: purchasedQuantity,
-      unit: shoppingItem.planned_unit,
+      unit: purchasedUnit,
       category: shoppingItem.category,
       source: "Lista de compras",
       expiry_date: expiryDate,
       storage_location: storageLocation,
       status: "disponivel",
-      notes: shoppingItem.notes ? `Comprado via lista. ${shoppingItem.notes}` : "Comprado via lista de compras."
+      notes: shoppingItem.notes ? `Comprado via lista. ${shoppingItem.notes}${unitChangedNote}` : `Comprado via lista de compras.${unitChangedNote}`
     })
     .select("id")
     .single();
