@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let client: ReturnType<typeof createClient> | null | undefined;
+let client: SupabaseClient<any> | null | undefined;
 
 export function isSupabaseConfigured() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -15,7 +15,7 @@ export function getSupabase() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
   client = supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
+    ? createClient<any>(supabaseUrl, supabaseAnonKey)
     : null;
 
   return client;
