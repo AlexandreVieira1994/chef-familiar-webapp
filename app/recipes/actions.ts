@@ -9,8 +9,13 @@ function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export async function updateRecipeStatus(formData: FormData) {
-  if (!supabase) throw new Error("Supabase is not configured");
+export type RecipeStatusState = {
+  ok: boolean;
+  message: string;
+};
+
+export async function updateRecipeStatus(_previousState: RecipeStatusState, formData: FormData): Promise<RecipeStatusState> {
+  if (!supabase) return { ok: false, message: "Supabase não configurada." };
 
   const recipeId = text(formData.get("recipe_id"));
   const recipeCode = text(formData.get("recipe_code"));
@@ -18,7 +23,7 @@ export async function updateRecipeStatus(formData: FormData) {
   const notes = text(formData.get("notes"));
 
   if (!recipeId || !recipeCode || !allowedStatuses.has(status)) {
-    throw new Error("Invalid recipe feedback");
+    return { ok: false, message: "Avaliação inválida." };
   }
 
   const { error: updateError } = await supabase
@@ -26,7 +31,7 @@ export async function updateRecipeStatus(formData: FormData) {
     .update({ status })
     .eq("id", recipeId);
 
-  if (updateError) throw new Error(updateError.message);
+  if (updateError) return { ok: false, message: updateError.message };
 
   const { error: feedbackError } = await supabase.from("recipe_feedback").insert({
     recipe_id: recipeId,
@@ -35,8 +40,10 @@ export async function updateRecipeStatus(formData: FormData) {
     notes: notes || null
   });
 
-  if (feedbackError) throw new Error(feedbackError.message);
+  if (feedbackError) return { ok: false, message: feedbackError.message };
 
   revalidatePath("/recipes");
   revalidatePath(`/recipes/${recipeCode}`);
+
+  return { ok: true, message: "Guardado." };
 }
