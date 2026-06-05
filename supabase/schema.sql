@@ -100,6 +100,7 @@ drop policy if exists "public read shopping lists" on shopping_lists;
 drop policy if exists "public insert shopping lists" on shopping_lists;
 drop policy if exists "public read shopping items" on shopping_list_items;
 drop policy if exists "public insert shopping items" on shopping_list_items;
+drop policy if exists "public update shopping items" on shopping_list_items;
 drop policy if exists "public read rules" on family_rules;
 drop policy if exists "public read recipe feedback" on recipe_feedback;
 drop policy if exists "public insert recipe feedback" on recipe_feedback;
@@ -113,6 +114,7 @@ create policy "public read shopping lists" on shopping_lists for select using (t
 create policy "public insert shopping lists" on shopping_lists for insert with check (true);
 create policy "public read shopping items" on shopping_list_items for select using (true);
 create policy "public insert shopping items" on shopping_list_items for insert with check (true);
+create policy "public update shopping items" on shopping_list_items for update using (true) with check (true);
 create policy "public read rules" on family_rules for select using (true);
 create policy "public read recipe feedback" on recipe_feedback for select using (true);
 create policy "public insert recipe feedback" on recipe_feedback for insert with check (true);
