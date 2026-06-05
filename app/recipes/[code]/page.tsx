@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/card";
+import { RecipeFeedbackDropdown } from "@/components/recipe-feedback-dropdown";
 import { supabase } from "@/lib/supabase";
-import { updateRecipeStatus } from "../actions";
 
 type Recipe = {
   id: string;
@@ -62,7 +62,10 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
       <div>
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
-        <p className="mt-2 text-neutral-600">{recipe.category} · {recipe.status} · {totalTime || "-"} min · custo {recipe.cost_level ?? "-"}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-neutral-600">
+          <span>{recipe.category} · {totalTime || "-"} min · custo {recipe.cost_level ?? "-"}</span>
+          <RecipeFeedbackDropdown recipeId={recipe.id} recipeCode={recipe.code} currentStatus={recipe.status} />
+        </div>
       </div>
 
       <Card title="Ingredientes">
@@ -99,30 +102,6 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
 
       <Card title="Notas">
         <p className="text-sm text-neutral-700">{recipe.notes ?? "Sem notas."}</p>
-      </Card>
-
-      <Card title="Avaliar receita">
-        <form action={updateRecipeStatus} className="grid gap-3 md:grid-cols-4">
-          <input type="hidden" name="recipe_id" value={recipe.id} />
-          <input type="hidden" name="recipe_code" value={recipe.code} />
-          <label className="space-y-1 text-sm md:col-span-1">
-            <span className="font-medium">Estado</span>
-            <select name="status" className="w-full rounded-lg border px-3 py-2" defaultValue={recipe.status}>
-              <option value="por_testar">Por testar</option>
-              <option value="aprovada">Aprovada</option>
-              <option value="neutra">Neutra</option>
-              <option value="a_melhorar">A melhorar</option>
-              <option value="rejeitada">Rejeitada</option>
-            </select>
-          </label>
-          <label className="space-y-1 text-sm md:col-span-3">
-            <span className="font-medium">Notas</span>
-            <input name="notes" className="w-full rounded-lg border px-3 py-2" placeholder="Ex: aprovada, mas reduzir tomate / bebé aceitou bem" />
-          </label>
-          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white md:col-span-4" type="submit">
-            Guardar avaliação
-          </button>
-        </form>
       </Card>
     </div>
   );
