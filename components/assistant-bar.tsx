@@ -167,6 +167,33 @@ export function AssistantBar() {
     const message = input.trim();
     if (!message) return;
     setInput("");
+
+    if (canConfirm && /^(confirmo|sim|aprova|aprovar|podes confirmar|pode confirmar|ok)$/i.test(message)) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-user-confirm`,
+          role: "user",
+          content: message
+        }
+      ]);
+      await decide("approve");
+      return;
+    }
+
+    if (canConfirm && /^(cancela|cancelar|nao|não|rejeita|rejeitar)$/i.test(message)) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-user-reject`,
+          role: "user",
+          content: message
+        }
+      ]);
+      await decide("reject");
+      return;
+    }
+
     await askAssistant(message);
   }
 

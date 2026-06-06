@@ -69,6 +69,12 @@ function nextWeekday(fromDate: string, targetWeekday: number) {
   return addDays(fromDate, distance);
 }
 
+function nextMonday(fromDate: string) {
+  const date = new Date(`${fromDate}T00:00:00`);
+  const distance = (1 - date.getDay() + 7) % 7 || 7;
+  return addDays(fromDate, distance);
+}
+
 function statusRank(status: string) {
   if (status === "aprovada") return 0;
   if (status === "neutra") return 1;
@@ -86,9 +92,43 @@ function isPlanActionRequest(message: string) {
 }
 
 function isPlanChangeRequest(message: string, history: AssistantChatMessage[]) {
-  const asksForChange = /altera|alterar|muda|mudar|troca|trocar|ajusta|ajustar|refaz|refazer|substitui|substituir/i.test(message);
+  const asksForChange = /altera|alterar|muda|mudar|troca|trocar|ajusta|ajustar|refaz|refazer|substitui|substituir|poe|põe|por|coloca|colocar|guarda|guardar|grava|gravar|regista|registrar|propoe|propõe|avanca|avança|sim/i.test(message);
   if (!asksForChange) return false;
   return history.some((item) => isPlanRequest(item.content) || /create_meal_plan|Proponho um plano|cozinha apenas/i.test(item.content));
+}
+
+function isInventoryActionRequest(message: string) {
+  return /comprei|trouxe|adicionei|adicionar|regista|registrar|guarda|guardar/i.test(message)
+    && !/plano|planeador|planejador|ementa|refei[cç][oõ]es/i.test(message);
+}
+
+function isMarkShoppingPurchasedRequest(message: string) {
+  return /marca|marcar|comprei|comprado|comprada/i.test(message)
+    && /lista|compra|compras|item|produto/i.test(message);
+}
+
+function selectedToolsForMessage(message: string) {
+  if (isMarkShoppingPurchasedRequest(message)) {
+    return {
+      tools,
+      tool_choice: {
+        type: "function" as const,
+        function: { name: "propose_mark_shopping_item_purchased" }
+      }
+    };
+  }
+
+  if (isInventoryActionRequest(message)) {
+    return {
+      tools,
+      tool_choice: {
+        type: "function" as const,
+        function: { name: "propose_inventory_entries" }
+      }
+    };
+  }
+
+  return { tools: undefined, tool_choice: undefined };
 }
 
 function requestedDays(message: string) {
@@ -170,6 +210,15 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
   if (!isPlanActionRequest(message) && !isChangeRequest) return null;
   const planningContext = isChangeRequest ? `${history.map((item) => item.content).join("\n")}\n${message}` : message;
 
+  if (/pr[oó]xima semana|semana que vem/i.test(planningContext) && /amanh[aã]/i.test(planningContext)) {
+    return {
+      message: "Consigo fazer esse plano, mas preciso de confirmar uma coisa: queres que o plano comece amanha por causa da pizza, ou que comece na proxima segunda-feira e a pizza fique fora do plano semanal?",
+      requiresConfirmation: false,
+      logId: null,
+      proposal: { kind: "answer", summary: "Pedido de plano com data ambigua." }
+    };
+  }
+
   const recipes = context.recipes
     .map(asRecipeForPlan)
     .filter((recipe): recipe is RecipeForAssistantPlan => Boolean(recipe))
@@ -186,7 +235,11 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
   }
 
   const days = requestedDays(planningContext);
-  const startDate = /domingo/i.test(planningContext) ? nextWeekday(today(), 0) : today();
+  const startDate = /pr[oó]xima semana|semana que vem/i.test(planningContext)
+    ? nextMonday(today())
+    : /domingo/i.test(planningContext)
+      ? nextWeekday(today(), 0)
+      : today();
   const endDate = addDays(startDate, days - 1);
   const slots = selectedMealSlots(planningContext);
   const replaceExisting = !/sem substituir|n[aã]o substitu/i.test(planningContext);
@@ -342,6 +395,7 @@ function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantConte
     "Ajuda com receitas, inventario, compras, planeador, regras da familia, BLW, aproveitamento de sobras e navegacao conceptual da app.",
     "Usa o historico da conversa para entender pedidos como alterar, refazer, trocar, confirmar ou continuar.",
     "So cries propostas executaveis quando o utilizador pedir uma acao clara. Se for pergunta, conselho, comparacao ou explicacao, responde em texto.",
+    "Nunca transformes uma confirmacao textual isolada em inventario ou compras. Confirmacoes de propostas sao tratadas pela interface.",
     "Acoes executaveis atuais: adicionar itens ao inventario, marcar compras como compradas, criar/alterar plano simples. Todas pedem confirmacao antes de gravar.",
     "Quando o utilizador disser que comprou/trouxe/adicionou ingredientes, usa a ferramenta propose_inventory_entries.",
     "Quando o utilizador pedir para marcar um item da lista como comprado, usa propose_mark_shopping_item_purchased e escolhe um item_id real do contexto.",
@@ -399,6 +453,7 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
     };
   }
 
+  const toolConfig = selectedToolsForMessage(message);
   const completion = await client.chat.completions.create({
     model: getAssistantModel(),
     messages: [
@@ -406,8 +461,7 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
       ...history.map((item) => ({ role: item.role, content: item.content })),
       { role: "user", content: message }
     ],
-    tools,
-    tool_choice: "auto"
+    ...(toolConfig.tools ? { tools: toolConfig.tools, tool_choice: toolConfig.tool_choice } : {})
   });
 
   const choice = completion.choices[0];
