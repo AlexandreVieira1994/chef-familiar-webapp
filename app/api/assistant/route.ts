@@ -9,7 +9,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const message = typeof body?.message === "string" ? body.message : "";
     const history = Array.isArray(body?.history) ? body.history : [];
-    const response = await createAssistantProposal(message, history);
+    const currentPath = typeof body?.currentPath === "string" ? body.currentPath : "";
+    const response = await createAssistantProposal(message, history, currentPath);
     return NextResponse.json(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro inesperado no assistente.";

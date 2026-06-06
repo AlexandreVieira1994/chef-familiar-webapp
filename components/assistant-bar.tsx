@@ -29,10 +29,10 @@ type SpeechRecognitionLike = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 const suggestions = [
-  "Plano 7 dias, cozinhar domingo e quarta",
-  "Comprei 1 kg batata e 6 ovos",
+  "O que posso fazer aqui?",
+  "Ajuda-me a decidir o jantar",
   "O que falta comprar?",
-  "Marcar leite como comprado"
+  "Comprei 1 kg batata e 6 ovos"
 ];
 
 function getSpeechRecognitionConstructor() {
@@ -128,7 +128,7 @@ export function AssistantBar() {
       const result = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, history })
+        body: JSON.stringify({ message, history, currentPath: window.location.pathname })
       });
       const data = await result.json();
 

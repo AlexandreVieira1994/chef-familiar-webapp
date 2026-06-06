@@ -81,6 +81,10 @@ function isPlanRequest(message: string) {
   return /plano|planeia|planeamento|ementa|refei[cç][oõ]es/i.test(message);
 }
 
+function isPlanActionRequest(message: string) {
+  return isPlanRequest(message) && /faz|fazer|cria|criar|gera|gerar|planeia|monta|montar|prepara|preparar/i.test(message);
+}
+
 function isPlanChangeRequest(message: string, history: AssistantChatMessage[]) {
   const asksForChange = /altera|alterar|muda|mudar|troca|trocar|ajusta|ajustar|refaz|refazer|substitui|substituir/i.test(message);
   if (!asksForChange) return false;
@@ -163,7 +167,7 @@ function parseInventoryItems(value: unknown): AssistantInventoryItem[] {
 
 function createBatchMealPlanProposal(message: string, context: AssistantContext, history: AssistantChatMessage[] = []): AssistantResponse | null {
   const isChangeRequest = isPlanChangeRequest(message, history);
-  if (!isPlanRequest(message) && !isChangeRequest) return null;
+  if (!isPlanActionRequest(message) && !isChangeRequest) return null;
   const planningContext = isChangeRequest ? `${history.map((item) => item.content).join("\n")}\n${message}` : message;
 
   const recipes = context.recipes
@@ -331,20 +335,24 @@ const tools = [
   }
 ];
 
-function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantContext>>) {
+function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantContext>>, currentPath = "") {
   return [
-    "És o assistente do Chef Familiar. Responde em português europeu, de forma curta e prática.",
-    "A v1 suporta inventário, lista de compras e planos simples. Não inventes alterações persistentes.",
+    "Es o assistente geral do Chef Familiar. Funcionas como chat da app inteira, nao como assistente de uma unica pagina.",
+    "Responde em portugues europeu, de forma curta, pratica e orientada para a tarefa do utilizador.",
+    "Ajuda com receitas, inventario, compras, planeador, regras da familia, BLW, aproveitamento de sobras e navegacao conceptual da app.",
+    "Usa o historico da conversa para entender pedidos como alterar, refazer, trocar, confirmar ou continuar.",
+    "So cries propostas executaveis quando o utilizador pedir uma acao clara. Se for pergunta, conselho, comparacao ou explicacao, responde em texto.",
+    "Acoes executaveis atuais: adicionar itens ao inventario, marcar compras como compradas, criar/alterar plano simples. Todas pedem confirmacao antes de gravar.",
     "Quando o utilizador disser que comprou/trouxe/adicionou ingredientes, usa a ferramenta propose_inventory_entries.",
     "Quando o utilizador pedir para marcar um item da lista como comprado, usa propose_mark_shopping_item_purchased e escolhe um item_id real do contexto.",
-    "Se estiveres apenas a responder a uma pergunta, não uses ferramentas.",
-    "Todas as ferramentas são propostas: a app pedirá confirmação antes de executar.",
+    "Se o utilizador pedir uma acao persistente que ainda nao exista como ferramenta, explica o que consegues fazer agora e oferece o melhor passo manual dentro da app.",
+    `Pagina atual: ${currentPath || "desconhecida"}.`,
     "Contexto JSON:",
     JSON.stringify(context)
   ].join("\n");
 }
 
-export async function createAssistantProposal(userMessage: string, rawHistory: unknown = []): Promise<AssistantResponse> {
+export async function createAssistantProposal(userMessage: string, rawHistory: unknown = [], currentPath = ""): Promise<AssistantResponse> {
   const message = userMessage.trim();
   if (!message) {
     return {
@@ -394,7 +402,7 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
   const completion = await client.chat.completions.create({
     model: getAssistantModel(),
     messages: [
-      { role: "system", content: buildSystemPrompt(context) },
+      { role: "system", content: buildSystemPrompt(context, currentPath) },
       ...history.map((item) => ({ role: item.role, content: item.content })),
       { role: "user", content: message }
     ],
