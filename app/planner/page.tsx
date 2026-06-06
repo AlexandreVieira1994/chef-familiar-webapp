@@ -26,6 +26,10 @@ type PlanEntry = {
   recipes: Recipe | null;
 };
 
+type PlanEntryRow = Omit<PlanEntry, "recipes"> & {
+  recipes: Recipe | Recipe[] | null;
+};
+
 const mealSlotOptions = [
   { value: "pequeno_almoco", label: "Pequeno-almoco" },
   { value: "almoco", label: "Almoco" },
@@ -78,7 +82,10 @@ async function loadPlanEntries(startDate: string, endDate: string): Promise<Plan
     .order("planned_date", { ascending: true })
     .order("meal_slot", { ascending: true })
     .order("created_at", { ascending: true });
-  return (data ?? []) as PlanEntry[];
+  return ((data ?? []) as PlanEntryRow[]).map((entry) => ({
+    ...entry,
+    recipes: Array.isArray(entry.recipes) ? entry.recipes[0] ?? null : entry.recipes
+  }));
 }
 
 export default async function PlannerPage() {
