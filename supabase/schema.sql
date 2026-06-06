@@ -70,6 +70,15 @@ create table if not exists shopping_list_items (
 alter table shopping_list_items add column if not exists purchased_quantity numeric;
 alter table shopping_list_items add column if not exists inventory_entry_id uuid references inventory_entries(id) on delete set null;
 
+create table if not exists meal_plan_entries (
+  id uuid primary key default gen_random_uuid(),
+  planned_date date not null,
+  meal_slot text not null,
+  recipe_id uuid not null references recipes(id) on delete cascade,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists family_rules (
   id uuid primary key default gen_random_uuid(),
   rule_key text unique not null,
@@ -102,6 +111,7 @@ alter table recipe_ingredients enable row level security;
 alter table inventory_entries enable row level security;
 alter table shopping_lists enable row level security;
 alter table shopping_list_items enable row level security;
+alter table meal_plan_entries enable row level security;
 alter table family_rules enable row level security;
 alter table recipe_feedback enable row level security;
 alter table assistant_action_logs enable row level security;
@@ -117,6 +127,9 @@ drop policy if exists "public insert shopping lists" on shopping_lists;
 drop policy if exists "public read shopping items" on shopping_list_items;
 drop policy if exists "public insert shopping items" on shopping_list_items;
 drop policy if exists "public update shopping items" on shopping_list_items;
+drop policy if exists "public read meal plan" on meal_plan_entries;
+drop policy if exists "public insert meal plan" on meal_plan_entries;
+drop policy if exists "public delete meal plan" on meal_plan_entries;
 drop policy if exists "public read rules" on family_rules;
 drop policy if exists "public read recipe feedback" on recipe_feedback;
 drop policy if exists "public insert recipe feedback" on recipe_feedback;
@@ -135,6 +148,9 @@ create policy "public insert shopping lists" on shopping_lists for insert with c
 create policy "public read shopping items" on shopping_list_items for select using (true);
 create policy "public insert shopping items" on shopping_list_items for insert with check (true);
 create policy "public update shopping items" on shopping_list_items for update using (true) with check (true);
+create policy "public read meal plan" on meal_plan_entries for select using (true);
+create policy "public insert meal plan" on meal_plan_entries for insert with check (true);
+create policy "public delete meal plan" on meal_plan_entries for delete using (true);
 create policy "public read rules" on family_rules for select using (true);
 create policy "public read recipe feedback" on recipe_feedback for select using (true);
 create policy "public insert recipe feedback" on recipe_feedback for insert with check (true);

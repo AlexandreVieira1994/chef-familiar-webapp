@@ -322,3 +322,40 @@ Validacao em producao:
 - nao existe `select[name="status"]` dentro do inventario;
 - `/planner` mostra estados humanos como `Por testar` e `Aprovada`;
 - `/recipes` mostra estado atual humanizado, mantendo o seletor de avaliacao rapida por ser feedback humano.
+
+### Atualizacao - assistente compacto e entrada manual
+
+Pedido do utilizador:
+
+- colapsar por defeito a aba de entrada manual no inventario;
+- remover a entrada de texto livre do inventario, porque o assistente esta disponivel globalmente;
+- transformar o assistente global numa notacao circular no fundo da pagina;
+- clique simples abre a entrada de texto;
+- manter premido inicia ditado/escuta;
+- testar o assistente e corrigir o que impedisse funcionamento basico.
+
+Alteracoes aplicadas:
+
+- removido o card `Adicionar por texto` da pagina de inventario;
+- `Adicionar entrada manual` passou a ser um painel `details` fechado por defeito;
+- reduzido o padding inferior global porque deixou de haver barra fixa larga do assistente;
+- `components/assistant-bar.tsx` foi refeito como botao flutuante circular no canto inferior direito;
+- clique no botao abre/fecha um painel compacto com textarea, sugestoes, resposta e confirmacoes;
+- long press tenta usar Web Speech API (`SpeechRecognition`/`webkitSpeechRecognition`) em `pt-PT`;
+- se voz nao estiver disponivel no browser, o painel mostra fallback e continua a aceitar texto;
+- fluxo de confirmacao do assistente manteve `Confirmar`, `Corrigir` e `Cancelar`.
+
+Correcao de infraestrutura:
+
+- a API do assistente falhava em producao porque a tabela `assistant_action_logs` nao existia no Supabase remoto;
+- aplicada migracao remota no projeto Supabase `wfccmjfgosgqknzjeqhz` para criar `assistant_action_logs` com RLS e policies publicas de leitura/insercao/atualizacao;
+- depois da migracao, `/api/assistant` voltou a criar propostas com `logId`;
+- uma proposta de teste foi rejeitada via `/api/assistant/confirm` para nao alterar dados reais.
+- tambem foi aplicada/confirmada no Supabase remoto a tabela `meal_plan_entries`, porque o worktree inclui a evolucao do planeador semanal.
+
+Validacoes feitas antes de commit:
+
+- `POST /api/assistant` com `O que falta comprar?` respondeu com itens pendentes da lista ativa;
+- `POST /api/assistant` com `Comprei 1 kg batata e 6 ovos` gerou proposta com confirmacao obrigatoria;
+- `POST /api/assistant/confirm` com `decision = reject` cancelou a proposta de teste;
+- validacao local de build nao foi possivel porque `npm` nao esta disponivel nesta sessao; usar Vercel para validacao final.

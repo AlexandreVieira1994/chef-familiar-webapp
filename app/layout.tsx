@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt">
       <body>
-        <div className="min-h-screen pb-56 md:pb-36">
+        <div className="min-h-screen pb-24">
           <Navigation />
           <main className="mx-auto max-w-6xl px-4 py-8 md:py-10">{children}</main>
           <AssistantBar />
