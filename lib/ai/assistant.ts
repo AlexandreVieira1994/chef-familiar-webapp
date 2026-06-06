@@ -15,6 +15,11 @@ type RecipeForAssistantPlan = {
   notes?: string | null;
 };
 
+type AssistantChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 function safeJsonParse(value: string) {
   try {
     return JSON.parse(value) as Record<string, unknown>;
@@ -30,6 +35,22 @@ function asString(value: unknown, fallback = "") {
 function asNumber(value: unknown, fallback = 0) {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function parseChatHistory(value: unknown): AssistantChatMessage[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const role = record.role === "user" || record.role === "assistant" ? record.role : null;
+      const content = asString(record.content).trim();
+      if (!role || !content) return null;
+      return { role, content };
+    })
+    .filter((item): item is AssistantChatMessage => Boolean(item))
+    .slice(-8);
 }
 
 function today() {
@@ -58,6 +79,12 @@ function statusRank(status: string) {
 
 function isPlanRequest(message: string) {
   return /plano|planeia|planeamento|ementa|refei[cç][oõ]es/i.test(message);
+}
+
+function isPlanChangeRequest(message: string, history: AssistantChatMessage[]) {
+  const asksForChange = /altera|alterar|muda|mudar|troca|trocar|ajusta|ajustar|refaz|refazer|substitui|substituir/i.test(message);
+  if (!asksForChange) return false;
+  return history.some((item) => isPlanRequest(item.content) || /create_meal_plan|Proponho um plano|cozinha apenas/i.test(item.content));
 }
 
 function requestedDays(message: string) {
@@ -134,8 +161,10 @@ function parseInventoryItems(value: unknown): AssistantInventoryItem[] {
   return items;
 }
 
-function createBatchMealPlanProposal(message: string, context: AssistantContext): AssistantResponse | null {
-  if (!isPlanRequest(message)) return null;
+function createBatchMealPlanProposal(message: string, context: AssistantContext, history: AssistantChatMessage[] = []): AssistantResponse | null {
+  const isChangeRequest = isPlanChangeRequest(message, history);
+  if (!isPlanRequest(message) && !isChangeRequest) return null;
+  const planningContext = isChangeRequest ? `${history.map((item) => item.content).join("\n")}\n${message}` : message;
 
   const recipes = context.recipes
     .map(asRecipeForPlan)
@@ -152,12 +181,12 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext)
     };
   }
 
-  const days = requestedDays(message);
-  const startDate = /domingo/i.test(message) ? nextWeekday(today(), 0) : today();
+  const days = requestedDays(planningContext);
+  const startDate = /domingo/i.test(planningContext) ? nextWeekday(today(), 0) : today();
   const endDate = addDays(startDate, days - 1);
-  const slots = selectedMealSlots(message);
-  const replaceExisting = !/sem substituir|n[aã]o substitu/i.test(message);
-  const cookingOnlySundayWednesday = /domingo/i.test(message) && /quarta/i.test(message);
+  const slots = selectedMealSlots(planningContext);
+  const replaceExisting = !/sem substituir|n[aã]o substitu/i.test(planningContext);
+  const cookingOnlySundayWednesday = /domingo/i.test(planningContext) && /quarta/i.test(planningContext);
   const firstCookDay = startDate;
   const secondCookDay = nextWeekday(startDate, 3);
 
@@ -315,7 +344,7 @@ function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantConte
   ].join("\n");
 }
 
-export async function createAssistantProposal(userMessage: string): Promise<AssistantResponse> {
+export async function createAssistantProposal(userMessage: string, rawHistory: unknown = []): Promise<AssistantResponse> {
   const message = userMessage.trim();
   if (!message) {
     return {
@@ -327,6 +356,7 @@ export async function createAssistantProposal(userMessage: string): Promise<Assi
   }
 
   const context = await loadAssistantContext();
+  const history = parseChatHistory(rawHistory);
   if (!context.configured) {
     return {
       message: "A Supabase ainda não está configurada. Posso ajudar quando as variáveis estiverem definidas na Vercel.",
@@ -336,7 +366,7 @@ export async function createAssistantProposal(userMessage: string): Promise<Assi
     };
   }
 
-  const mealPlanProposal = createBatchMealPlanProposal(message, context);
+  const mealPlanProposal = createBatchMealPlanProposal(message, context, history);
   if (mealPlanProposal?.proposal.kind === "create_meal_plan") {
     const logId = await createAssistantActionLog(message, mealPlanProposal.proposal);
     return {
@@ -365,6 +395,7 @@ export async function createAssistantProposal(userMessage: string): Promise<Assi
     model: getAssistantModel(),
     messages: [
       { role: "system", content: buildSystemPrompt(context) },
+      ...history.map((item) => ({ role: item.role, content: item.content })),
       { role: "user", content: message }
     ],
     tools,

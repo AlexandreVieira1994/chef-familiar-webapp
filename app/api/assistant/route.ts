@@ -8,7 +8,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const message = typeof body?.message === "string" ? body.message : "";
-    const response = await createAssistantProposal(message);
+    const history = Array.isArray(body?.history) ? body.history : [];
+    const response = await createAssistantProposal(message, history);
     return NextResponse.json(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro inesperado no assistente.";

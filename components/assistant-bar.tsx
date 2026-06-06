@@ -1,10 +1,17 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { AssistantProposal, AssistantResponse } from "@/lib/ai/types";
 
 type Status = "idle" | "loading" | "confirming" | "error";
+
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  response?: AssistantResponse;
+};
 
 type SpeechRecognitionResultItem = { transcript: string };
 type SpeechRecognitionAlternativeList = { 0?: SpeechRecognitionResultItem };
@@ -73,11 +80,25 @@ function proposalDetails(proposal: AssistantProposal): ReactNode {
   return null;
 }
 
+function messageForHistory(message: ChatMessage) {
+  if (!message.response) return message.content;
+
+  const details =
+    message.response.proposal.kind === "create_meal_plan"
+      ? message.response.proposal.entries
+          .map((entry) => `${entry.planned_date} ${entry.meal_slot}: ${entry.recipe_code} ${entry.recipe_name}. ${entry.notes}`)
+          .join("\n")
+      : "";
+
+  return details ? `${message.content}\n${details}` : message.content;
+}
+
 export function AssistantBar() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [response, setResponse] = useState<AssistantResponse | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -85,13 +106,20 @@ export function AssistantBar() {
   const longPressRef = useRef(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
-  const canConfirm = useMemo(
-    () => Boolean(response?.requiresConfirmation && response.logId),
-    [response]
-  );
-  const details = response ? proposalDetails(response.proposal) : null;
+  const canConfirm = Boolean(response?.requiresConfirmation && response.logId);
 
   async function askAssistant(message: string) {
+    const userMessage: ChatMessage = {
+      id: `${Date.now()}-user`,
+      role: "user",
+      content: message
+    };
+    const history = messages.slice(-8).map((item) => ({
+      role: item.role,
+      content: messageForHistory(item)
+    }));
+
+    setMessages((current) => [...current, userMessage]);
     setStatus("loading");
     setError("");
     setResponse(null);
@@ -100,18 +128,36 @@ export function AssistantBar() {
       const result = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, history })
       });
       const data = await result.json();
 
       if (!result.ok) {
-        throw new Error(data?.error ?? "Não foi possível falar com o assistente.");
+        throw new Error(data?.error ?? "Nao foi possivel falar com o assistente.");
       }
 
-      setResponse(data as AssistantResponse);
+      const assistantResponse = data as AssistantResponse;
+      const assistantMessage: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        role: "assistant",
+        content: assistantResponse.message,
+        response: assistantResponse
+      };
+
+      setResponse(assistantResponse);
+      setMessages((current) => [...current, assistantMessage]);
       setStatus("idle");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Erro inesperado.");
+      const message = requestError instanceof Error ? requestError.message : "Erro inesperado.";
+      setError(message);
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-assistant-error`,
+          role: "assistant",
+          content: message
+        }
+      ]);
       setStatus("error");
     }
   }
@@ -120,6 +166,7 @@ export function AssistantBar() {
     event.preventDefault();
     const message = input.trim();
     if (!message) return;
+    setInput("");
     await askAssistant(message);
   }
 
@@ -138,16 +185,24 @@ export function AssistantBar() {
       const data = await result.json();
 
       if (!result.ok) {
-        throw new Error(data?.error ?? "Não foi possível confirmar a proposta.");
+        throw new Error(data?.error ?? "Nao foi possivel confirmar a proposta.");
       }
 
+      const content = data.message ?? (decision === "approve" ? "Feito." : "Proposta cancelada.");
       setResponse({
-        message: data.message ?? (decision === "approve" ? "Feito." : "Proposta cancelada."),
+        message: content,
         requiresConfirmation: false,
         logId: null,
-        proposal: { kind: "answer", summary: data.message ?? "Concluído." }
+        proposal: { kind: "answer", summary: content }
       });
-      if (decision === "approve") setInput("");
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-assistant-confirm`,
+          role: "assistant",
+          content
+        }
+      ]);
       setStatus("idle");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Erro inesperado.");
@@ -157,6 +212,13 @@ export function AssistantBar() {
 
   function correct() {
     setResponse(null);
+    setStatus("idle");
+  }
+
+  function startNewChat() {
+    setMessages([]);
+    setResponse(null);
+    setError("");
     setStatus("idle");
   }
 
@@ -172,7 +234,7 @@ export function AssistantBar() {
 
     const Recognition = getSpeechRecognitionConstructor();
     if (!Recognition) {
-      setVoiceMessage("Voz indisponível neste browser.");
+      setVoiceMessage("Voz indisponivel neste browser.");
       setIsListening(false);
       return;
     }
@@ -189,7 +251,7 @@ export function AssistantBar() {
     };
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => {
-      setVoiceMessage("Não consegui ouvir. Tenta escrever ou voltar a premir.");
+      setVoiceMessage("Nao consegui ouvir. Tenta escrever ou voltar a premir.");
       setIsListening(false);
     };
 
@@ -232,7 +294,7 @@ export function AssistantBar() {
           <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-[#17211b]">Assistente Chef Familiar</p>
-              <p className="text-xs text-[#647268]">{isListening ? "A ouvir..." : "Inventário e compras"}</p>
+              <p className="text-xs text-[#647268]">{isListening ? "A ouvir..." : "Inventario, compras e planos"}</p>
             </div>
             <button
               aria-label="Fechar assistente"
@@ -243,23 +305,106 @@ export function AssistantBar() {
               }}
               type="button"
             >
-              ×
+              x
             </button>
           </div>
 
-          <form onSubmit={submit} className="shrink-0 space-y-3">
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[#dce5dc] bg-[#edf5ef] p-3 text-sm">
+            {messages.length === 0 && !error && !voiceMessage && (
+              <p className="text-xs leading-5 text-[#647268]">
+                Pede atualizacoes de inventario, confirma compras ou conversa sobre o plano sem sair da pagina.
+              </p>
+            )}
+            {voiceMessage && <p className="text-xs leading-5 text-[#647268]">{voiceMessage}</p>}
+            {error && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800">
+                {error}
+              </div>
+            )}
+            <div className="space-y-3">
+              {messages.map((message) => {
+                const messageDetails = message.response ? proposalDetails(message.response.proposal) : null;
+                const isLatestAssistant = message.id === messages[messages.length - 1]?.id && message.role === "assistant";
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`rounded-xl px-3 py-2 ${
+                      message.role === "user"
+                        ? "ml-8 bg-white text-[#17211b]"
+                        : "mr-6 bg-[#f8fbf8] text-[#17211b]"
+                    }`}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#b85c38]">
+                      {message.role === "user" ? "Tu" : message.response?.requiresConfirmation ? "Proposta" : "Assistente"}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words font-semibold">{message.content}</p>
+                    {messageDetails && <ul className="mt-2 space-y-1.5 break-words text-xs text-[#647268]">{messageDetails}</ul>}
+                    {isLatestAssistant && canConfirm && (
+                      <div className="mt-2 flex flex-wrap gap-2 pt-1">
+                        <button
+                          className="rounded-lg bg-[#2f6b4f] px-3 py-2 text-xs font-semibold text-white shadow-sm disabled:bg-[#b8c8ba]"
+                          disabled={status === "confirming"}
+                          onClick={() => decide("approve")}
+                          type="button"
+                        >
+                          {status === "confirming" ? "A guardar" : "Confirmar"}
+                        </button>
+                        <button
+                          className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
+                          disabled={status === "confirming"}
+                          onClick={correct}
+                          type="button"
+                        >
+                          Corrigir
+                        </button>
+                        <button
+                          className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
+                          disabled={status === "confirming"}
+                          onClick={() => decide("reject")}
+                          type="button"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {messages.length > 0 && !canConfirm && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
+                  onClick={startNewChat}
+                  type="button"
+                >
+                  Nova conversa
+                </button>
+                <button
+                  className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
+                  onClick={() => setIsOpen(false)}
+                  type="button"
+                >
+                  Fechar
+                </button>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={submit} className="mt-3 shrink-0 space-y-3">
             <div className="flex gap-2">
               <textarea
                 id="assistant-input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                className="min-h-20 flex-1 resize-none rounded-xl border border-[#dce5dc] px-3 py-2 text-sm text-[#17211b] placeholder:text-[#8a978d]"
-                placeholder="Escreve naturalmente..."
-                rows={3}
+                className="min-h-16 flex-1 resize-none rounded-xl border border-[#dce5dc] px-3 py-2 text-sm text-[#17211b] placeholder:text-[#8a978d]"
+                placeholder={canConfirm ? "Escreve ajustes antes de confirmar..." : "Responde ou faz outra pergunta..."}
+                rows={2}
               />
               <button
                 aria-label="Enviar mensagem ao assistente"
-                className="h-20 rounded-xl bg-[#2f6b4f] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#25563f] disabled:cursor-not-allowed disabled:bg-[#b8c8ba]"
+                className="h-16 rounded-xl bg-[#2f6b4f] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#25563f] disabled:cursor-not-allowed disabled:bg-[#b8c8ba]"
                 disabled={status === "loading" || status === "confirming" || !input.trim()}
                 type="submit"
               >
@@ -280,77 +425,6 @@ export function AssistantBar() {
               ))}
             </div>
           </form>
-
-          <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl border border-[#dce5dc] bg-[#edf5ef] p-3 text-sm">
-            {!response && !error && !voiceMessage && (
-              <p className="text-xs leading-5 text-[#647268]">
-                Pede atualizações de inventário ou confirma compras sem sair da página.
-              </p>
-            )}
-            {voiceMessage && <p className="text-xs leading-5 text-[#647268]">{voiceMessage}</p>}
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800">
-                {error}
-              </div>
-            )}
-            {response && (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#b85c38]">
-                    {canConfirm ? "Proposta para confirmar" : "Resposta"}
-                  </p>
-                  <p className="mt-1 break-words font-semibold text-[#17211b]">{response.message}</p>
-                </div>
-                {details && <ul className="space-y-1.5 break-words text-xs text-[#647268]">{details}</ul>}
-                {canConfirm && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      className="rounded-lg bg-[#2f6b4f] px-3 py-2 text-xs font-semibold text-white shadow-sm disabled:bg-[#b8c8ba]"
-                      disabled={status === "confirming"}
-                      onClick={() => decide("approve")}
-                      type="button"
-                    >
-                      {status === "confirming" ? "A guardar" : "Confirmar"}
-                    </button>
-                    <button
-                      className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
-                      disabled={status === "confirming"}
-                      onClick={correct}
-                      type="button"
-                    >
-                      Corrigir
-                    </button>
-                    <button
-                      className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
-                      disabled={status === "confirming"}
-                      onClick={() => decide("reject")}
-                      type="button"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-                {!canConfirm && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
-                      onClick={correct}
-                      type="button"
-                    >
-                      Nova pergunta
-                    </button>
-                    <button
-                      className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
-                      onClick={() => setIsOpen(false)}
-                      type="button"
-                    >
-                      Fechar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </aside>
       )}
 
