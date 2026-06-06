@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/card";
+import { recipeStatusLabel } from "@/lib/recipe-status";
 import { getSupabase } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "../actions";
 
@@ -57,7 +58,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
       <div>
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
-        <p className="mt-2 text-neutral-600">{recipe.category} · {recipe.status} · {totalTime || "-"} min · custo {recipe.cost_level ?? "-"}</p>
+        <p className="mt-2 text-neutral-600">{recipe.category} · {recipeStatusLabel(recipe.status)} · {totalTime || "-"} min · custo {recipe.cost_level ?? "-"}</p>
       </div>
 
       <Card title="Avaliar receita">
@@ -75,7 +76,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
           <input name="notes" className="rounded-lg border px-3 py-2 text-sm md:col-span-2" placeholder="Notas" />
           <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">Guardar</button>
         </form>
-        <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Estado atual:</strong> {recipe.status}</p>
+        <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Estado atual:</strong> {recipeStatusLabel(recipe.status)}</p>
         <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Última nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
       </Card>
 
@@ -83,7 +84,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         <div className="space-y-2 text-sm">
           {history.map((item, index) => (
             <div key={`${item.created_at}-${index}`} className="rounded-lg border p-3">
-              <div className="font-medium">{item.status} · {new Date(item.created_at).toLocaleString("pt-PT")}</div>
+              <div className="font-medium">{recipeStatusLabel(item.status)} · {new Date(item.created_at).toLocaleString("pt-PT")}</div>
               <div className="text-neutral-600">{item.notes || "Sem nota."}</div>
             </div>
           ))}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/card";
+import { recipeStatusLabel } from "@/lib/recipe-status";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "./actions";
 
@@ -65,7 +66,7 @@ export default async function RecipesPage() {
                   </td>
                   <td className="py-3 pr-4">{recipe.category}</td>
                   <td className="py-3 pr-4">{recipe.cost_level ?? "-"}</td>
-                  <td className="py-3 pr-4 font-medium">{recipe.status}</td>
+                  <td className="py-3 pr-4 font-medium">{recipeStatusLabel(recipe.status)}</td>
                   <td className="py-3 pr-4 max-w-64 text-neutral-600">{recipe.feedback_notes || "-"}</td>
                   <td className="py-3 pr-4 min-w-[420px]">
                     <form action={updateRecipeStatusForm} className="grid gap-2 md:grid-cols-[150px_1fr_auto]">

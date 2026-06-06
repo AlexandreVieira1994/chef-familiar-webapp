@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { buildInventoryEntry, normalizeUnit } from "@/lib/ai/inventory-utils";
+import { getPersistedInventoryStatus } from "@/lib/inventory-status";
 import { getSupabase } from "@/lib/supabase";
 
 function text(value: FormDataEntryValue | null) {
@@ -112,7 +113,7 @@ export async function updateInventoryEntry(formData: FormData) {
   const ingredientName = text(formData.get("ingredient_name"));
   const quantityRemaining = numberValue(formData.get("quantity_remaining"));
   const unit = text(formData.get("unit"));
-  const status = text(formData.get("status")) || "disponivel";
+  const expiryDate = text(formData.get("expiry_date")) || null;
 
   if (!entryId || !ingredientName || quantityRemaining < 0 || !unit) {
     throw new Error("Entrada de inventário inválida.");
@@ -125,9 +126,9 @@ export async function updateInventoryEntry(formData: FormData) {
       quantity_remaining: quantityRemaining,
       unit: normalizeUnit(unit),
       category: text(formData.get("category")) || null,
-      expiry_date: text(formData.get("expiry_date")) || null,
+      expiry_date: expiryDate,
       storage_location: text(formData.get("storage_location")) || null,
-      status,
+      status: getPersistedInventoryStatus(quantityRemaining, expiryDate),
       notes: text(formData.get("notes")) || null
     })
     .eq("id", entryId);

@@ -1,4 +1,9 @@
 import { Card } from "@/components/card";
+import {
+  getAutomaticInventoryStatus,
+  inventoryStatusLabel,
+  isInventoryEntryUsable
+} from "@/lib/inventory-status";
 import { getSupabase } from "@/lib/supabase";
 import { addInventoryEntry, addInventoryFromText, deleteInventoryEntry, updateInventoryEntry } from "./actions";
 
@@ -52,11 +57,27 @@ function groupByIngredient(entries: InventoryEntry[]): IngredientGroup[] {
   return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, "pt"));
 }
 
+function formatQuantity(quantity: number, unit: string) {
+  return `${quantity} ${unit}`;
+}
+
+function formatDate(date: string | null) {
+  if (!date) return "Sem validade";
+  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-PT");
+}
+
+function usableEntries(entries: InventoryEntry[]) {
+  return entries.filter(isInventoryEntryUsable);
+}
+
+function expiredEntries(entries: InventoryEntry[]) {
+  return entries.filter((entry) => getAutomaticInventoryStatus(entry) === "expirado");
+}
+
 function summarizeQuantities(entries: InventoryEntry[]) {
   const totals = new Map<string, number>();
 
-  for (const entry of entries) {
-    if (entry.status !== "disponivel" || Number(entry.quantity_remaining) <= 0) continue;
+  for (const entry of usableEntries(entries)) {
     totals.set(entry.unit, (totals.get(entry.unit) ?? 0) + Number(entry.quantity_remaining ?? 0));
   }
 
@@ -68,29 +89,41 @@ function summarizeQuantities(entries: InventoryEntry[]) {
 }
 
 function earliestExpiry(entries: InventoryEntry[]) {
-  const datedEntries = entries
+  const datedEntries = usableEntries(entries)
     .filter((entry) => entry.expiry_date)
     .sort((a, b) => String(a.expiry_date).localeCompare(String(b.expiry_date)));
 
-  return datedEntries[0]?.expiry_date ?? "Sem validade";
+  return datedEntries[0]?.expiry_date ?? null;
 }
 
-function formatInitialQuantity(entry: InventoryEntry) {
-  return `${entry.quantity_initial} ${entry.unit}`;
+function groupStatus(entries: InventoryEntry[]) {
+  if (usableEntries(entries).length > 0) return "disponivel";
+  if (expiredEntries(entries).length > 0) return "expirado";
+  return "sem_stock";
+}
+
+function statusBadgeClass(status: ReturnType<typeof getAutomaticInventoryStatus>) {
+  if (status === "disponivel") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (status === "expirado") return "border-red-200 bg-red-50 text-red-800";
+  if (status === "sem_stock") return "border-neutral-200 bg-neutral-100 text-neutral-700";
+  return "border-neutral-200 bg-neutral-50 text-neutral-500";
 }
 
 export default async function InventoryPage() {
   const allEntries = await loadInventory();
   const entries = allEntries.filter((entry) => entry.status !== "removido");
   const groups = groupByIngredient(entries);
-  const availableEntries = entries.filter((entry) => entry.status === "disponivel" && Number(entry.quantity_remaining) > 0);
-  const lowOrEmptyEntries = entries.filter((entry) => Number(entry.quantity_remaining) <= 0 || entry.status !== "disponivel");
+  const availableEntries = entries.filter(isInventoryEntryUsable);
+  const expiredCount = entries.filter((entry) => getAutomaticInventoryStatus(entry) === "expirado").length;
+  const emptyCount = entries.filter((entry) => getAutomaticInventoryStatus(entry) === "sem_stock").length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Inventário</h1>
-        <p className="mt-2 text-neutral-600">Ingredientes agrupados por nome, com cada entrada/lote separado para controlar validade e quantidade.</p>
+        <p className="mt-2 text-neutral-600">
+          Ingredientes agrupados por nome. Abre um ingrediente para rever os lotes, quantidades e validades.
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -98,13 +131,13 @@ export default async function InventoryPage() {
           <p className="text-2xl font-bold">{groups.length}</p>
           <p className="text-sm text-neutral-600">Ingredientes diferentes registados.</p>
         </Card>
-        <Card title="Entradas disponíveis">
+        <Card title="Lotes disponíveis">
           <p className="text-2xl font-bold">{availableEntries.length}</p>
-          <p className="text-sm text-neutral-600">Lotes prontos a usar nas listas e planeamento.</p>
+          <p className="text-sm text-neutral-600">Com stock e dentro da validade.</p>
         </Card>
-        <Card title="Sem stock ou inativas">
-          <p className="text-2xl font-bold">{lowOrEmptyEntries.length}</p>
-          <p className="text-sm text-neutral-600">Entradas a rever, arquivar ou remover.</p>
+        <Card title="A rever">
+          <p className="text-2xl font-bold">{expiredCount + emptyCount}</p>
+          <p className="text-sm text-neutral-600">{expiredCount} expirado(s), {emptyCount} sem stock.</p>
         </Card>
       </div>
 
@@ -145,7 +178,7 @@ export default async function InventoryPage() {
             <input name="category" className="w-full rounded-lg border px-3 py-2" placeholder="Legume, fruta, leguminosa..." />
           </label>
           <label className="space-y-1 text-sm">
-            <span className="font-medium">Validade aproximada</span>
+            <span className="font-medium">Validade</span>
             <input name="expiry_date" type="date" className="w-full rounded-lg border px-3 py-2" />
           </label>
           <label className="space-y-1 text-sm">
@@ -164,88 +197,93 @@ export default async function InventoryPage() {
 
       <Card title="Inventário atual">
         <div className="space-y-3">
-          {groups.map((group) => (
-            <details key={normalizeIngredientName(group.name)} className="rounded-lg border bg-white" data-testid="inventory-ingredient-group" open>
-              <summary className="grid cursor-pointer gap-2 px-4 py-3 text-sm md:grid-cols-[1fr_180px_160px_120px]" data-testid="inventory-ingredient-summary">
-                <span className="font-semibold">{group.name}</span>
-                <span className="text-neutral-600">{summarizeQuantities(group.entries)}</span>
-                <span className="text-neutral-600">Validade: {earliestExpiry(group.entries)}</span>
-                <span className="text-neutral-500">{group.entries.length} entrada(s)</span>
-              </summary>
-              <div className="overflow-x-auto border-t">
-                <table className="w-full min-w-[1180px] text-left text-sm">
-                  <thead className="border-b bg-neutral-50 text-neutral-500">
-                    <tr>
-                      <th className="py-2 pl-4 pr-3">Entrada</th>
-                      <th className="py-2 pr-3">Inicial</th>
-                      <th className="py-2 pr-3">Restante</th>
-                      <th className="py-2 pr-3">Unidade</th>
-                      <th className="py-2 pr-3">Categoria</th>
-                      <th className="py-2 pr-3">Validade</th>
-                      <th className="py-2 pr-3">Local</th>
-                      <th className="py-2 pr-3">Estado</th>
-                      <th className="py-2 pr-3">Notas</th>
-                      <th className="py-2 pr-4">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.entries.map((entry, index) => (
-                      <tr key={entry.id} className="border-b last:border-0 align-top" data-testid="inventory-entry-row">
-                        <td className="py-3 pl-4 pr-3">
-                          <form id={`update-inventory-${entry.id}`} action={updateInventoryEntry} className="contents" data-testid="inventory-entry-update-form">
-                            <input type="hidden" name="entry_id" value={entry.id} />
-                            <input name="ingredient_name" className="w-40 rounded-lg border px-2 py-2 font-medium" defaultValue={entry.ingredient_name} required />
-                          </form>
-                          <p className="mt-1 text-xs text-neutral-500">Lote {index + 1}</p>
-                        </td>
-                        <td className="py-3 pr-3 text-neutral-500">{formatInitialQuantity(entry)}</td>
-                        <td className="py-3 pr-3">
-                          <input form={`update-inventory-${entry.id}`} name="quantity_remaining" type="number" step="0.01" min="0" className="w-24 rounded-lg border px-2 py-2" defaultValue={entry.quantity_remaining} required />
-                        </td>
-                        <td className="py-3 pr-3">
-                          <input form={`update-inventory-${entry.id}`} name="unit" className="w-20 rounded-lg border px-2 py-2" defaultValue={entry.unit} required />
-                        </td>
-                        <td className="py-3 pr-3">
-                          <input form={`update-inventory-${entry.id}`} name="category" className="w-32 rounded-lg border px-2 py-2" defaultValue={entry.category ?? ""} />
-                        </td>
-                        <td className="py-3 pr-3">
-                          <input form={`update-inventory-${entry.id}`} name="expiry_date" type="date" className="w-36 rounded-lg border px-2 py-2" defaultValue={entry.expiry_date ?? ""} />
-                        </td>
-                        <td className="py-3 pr-3">
-                          <input form={`update-inventory-${entry.id}`} name="storage_location" className="w-32 rounded-lg border px-2 py-2" defaultValue={entry.storage_location ?? ""} />
-                        </td>
-                        <td className="py-3 pr-3">
-                          <select form={`update-inventory-${entry.id}`} name="status" className="w-32 rounded-lg border px-2 py-2" defaultValue={entry.status ?? "disponivel"}>
-                            <option value="disponivel">Disponível</option>
-                            <option value="baixo_stock">Baixo stock</option>
-                            <option value="usado">Usado</option>
-                            <option value="expirado">Expirado</option>
-                            <option value="removido">Removido</option>
-                          </select>
-                        </td>
-                        <td className="py-3 pr-3">
-                          <input form={`update-inventory-${entry.id}`} name="notes" className="w-52 rounded-lg border px-2 py-2" defaultValue={entry.notes ?? ""} />
-                        </td>
-                        <td className="py-3 pr-4">
-                          <div className="flex gap-2">
-                            <button form={`update-inventory-${entry.id}`} className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" data-testid="inventory-entry-save" type="submit">
-                              Guardar
-                            </button>
-                            <form action={deleteInventoryEntry} data-testid="inventory-entry-delete-form">
-                              <input type="hidden" name="entry_id" value={entry.id} />
-                              <button className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700" data-testid="inventory-entry-remove" type="submit">
-                                Remover
-                              </button>
-                            </form>
+          {groups.map((group) => {
+            const currentGroupStatus = groupStatus(group.entries);
+            const currentExpiry = earliestExpiry(group.entries);
+
+            return (
+              <details key={normalizeIngredientName(group.name)} className="group rounded-lg border bg-white" data-testid="inventory-ingredient-group">
+                <summary className="grid cursor-pointer list-none gap-2 px-4 py-3 text-sm md:grid-cols-[1fr_180px_160px_130px_28px]" data-testid="inventory-ingredient-summary">
+                  <span className="font-semibold">{group.name}</span>
+                  <span className="text-neutral-700">{summarizeQuantities(group.entries)}</span>
+                  <span className="text-neutral-600">Validade: {formatDate(currentExpiry)}</span>
+                  <span className={`w-fit rounded-full border px-2 py-1 text-xs font-medium ${statusBadgeClass(currentGroupStatus)}`}>
+                    {inventoryStatusLabel(currentGroupStatus)}
+                  </span>
+                  <span className="text-right text-neutral-400 transition group-open:rotate-90" aria-hidden="true">›</span>
+                  <span className="text-xs text-neutral-500 md:col-span-5">
+                    {group.entries.length} lote(s), {expiredEntries(group.entries).length} expirado(s)
+                  </span>
+                </summary>
+
+                <div className="grid gap-3 border-t bg-neutral-50 p-3 lg:grid-cols-2">
+                  {group.entries.map((entry, index) => {
+                    const entryStatus = getAutomaticInventoryStatus(entry);
+
+                    return (
+                      <article key={entry.id} className="rounded-lg border bg-white p-4 shadow-sm" data-testid="inventory-entry-row">
+                        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">Lote {index + 1}</p>
+                            <p className="text-xs text-neutral-500">
+                              Inicial: {formatQuantity(entry.quantity_initial, entry.unit)} · Validade: {formatDate(entry.expiry_date)}
+                            </p>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </details>
-          ))}
+                          <span className={`rounded-full border px-2 py-1 text-xs font-medium ${statusBadgeClass(entryStatus)}`}>
+                            {inventoryStatusLabel(entryStatus)}
+                          </span>
+                        </div>
+
+                        <form id={`update-inventory-${entry.id}`} action={updateInventoryEntry} className="grid gap-3 sm:grid-cols-2" data-testid="inventory-entry-update-form">
+                          <input type="hidden" name="entry_id" value={entry.id} />
+                          <label className="space-y-1 text-xs font-medium text-neutral-600 sm:col-span-2">
+                            Ingrediente
+                            <input name="ingredient_name" className="w-full rounded-lg border px-3 py-2 text-sm font-medium text-neutral-900" defaultValue={entry.ingredient_name} required />
+                          </label>
+                          <label className="space-y-1 text-xs font-medium text-neutral-600">
+                            Restante
+                            <input name="quantity_remaining" type="number" step="0.01" min="0" className="w-full rounded-lg border px-3 py-2 text-sm text-neutral-900" defaultValue={entry.quantity_remaining} required />
+                          </label>
+                          <label className="space-y-1 text-xs font-medium text-neutral-600">
+                            Unidade
+                            <input name="unit" className="w-full rounded-lg border px-3 py-2 text-sm text-neutral-900" defaultValue={entry.unit} required />
+                          </label>
+                          <label className="space-y-1 text-xs font-medium text-neutral-600">
+                            Categoria
+                            <input name="category" className="w-full rounded-lg border px-3 py-2 text-sm text-neutral-900" defaultValue={entry.category ?? ""} />
+                          </label>
+                          <label className="space-y-1 text-xs font-medium text-neutral-600">
+                            Validade
+                            <input name="expiry_date" type="date" className="w-full rounded-lg border px-3 py-2 text-sm text-neutral-900" defaultValue={entry.expiry_date ?? ""} />
+                          </label>
+                          <label className="space-y-1 text-xs font-medium text-neutral-600 sm:col-span-2">
+                            Local
+                            <input name="storage_location" className="w-full rounded-lg border px-3 py-2 text-sm text-neutral-900" defaultValue={entry.storage_location ?? ""} />
+                          </label>
+                          <label className="space-y-1 text-xs font-medium text-neutral-600 sm:col-span-2">
+                            Notas
+                            <input name="notes" className="w-full rounded-lg border px-3 py-2 text-sm text-neutral-900" defaultValue={entry.notes ?? ""} />
+                          </label>
+                        </form>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button form={`update-inventory-${entry.id}`} className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" data-testid="inventory-entry-save" type="submit">
+                            Guardar
+                          </button>
+                          <form action={deleteInventoryEntry} data-testid="inventory-entry-delete-form">
+                            <input type="hidden" name="entry_id" value={entry.id} />
+                            <button className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700" data-testid="inventory-entry-remove" type="submit">
+                              Remover
+                            </button>
+                          </form>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          })}
           {groups.length === 0 && (
             <p className="py-4 text-sm text-neutral-500">Sem entradas de inventário.</p>
           )}

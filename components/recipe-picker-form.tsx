@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { recipeStatusLabel } from "@/lib/recipe-status";
 
 type Recipe = {
   id: string;
@@ -57,7 +58,7 @@ export function RecipePickerForm({ recipes, action }: RecipePickerFormProps) {
             />
             <span>
               <span className="block font-medium">{recipe.code} · {recipe.name}</span>
-              <span className="text-neutral-500">{recipe.category} · {recipe.status}</span>
+              <span className="text-neutral-500">{recipe.category} · {recipeStatusLabel(recipe.status)}</span>
             </span>
           </label>
         ))}

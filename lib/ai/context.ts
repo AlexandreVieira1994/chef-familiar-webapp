@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
+import { isInventoryEntryUsable } from "@/lib/inventory-status";
 
 export async function loadAssistantContext() {
   const supabase = getSupabase();
@@ -21,7 +22,6 @@ export async function loadAssistantContext() {
     supabase
       .from("inventory_entries")
       .select("id, ingredient_name, quantity_remaining, unit, category, expiry_date, storage_location, status")
-      .eq("status", "disponivel")
       .order("expiry_date", { ascending: true }),
     supabase
       .from("shopping_lists")
@@ -46,7 +46,7 @@ export async function loadAssistantContext() {
     configured: true,
     familyRules: rulesResult.data ?? [],
     recipes: recipesResult.data ?? [],
-    inventory: inventoryResult.data ?? [],
+    inventory: (inventoryResult.data ?? []).filter(isInventoryEntryUsable),
     activeShoppingList: listResult.data ?? null,
     shoppingItems
   };

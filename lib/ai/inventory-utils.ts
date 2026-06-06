@@ -1,3 +1,5 @@
+import { getPersistedInventoryStatus } from "@/lib/inventory-status";
+
 export type InventoryEstimate = {
   category: string;
   storage: string;
@@ -79,6 +81,7 @@ export function buildInventoryEntry(
   const category = categoryInput || estimate.category;
   const storageLocation = storageInput || estimate.storage;
   const notes = notesInput ? `${notesInput} | ${estimate.note}` : estimate.note;
+  const expiryDate = expiryInput || addDays(estimate.days);
 
   return {
     ingredient_name: ingredientName,
@@ -87,9 +90,9 @@ export function buildInventoryEntry(
     unit: normalizeUnit(unit),
     category,
     source,
-    expiry_date: expiryInput || addDays(estimate.days),
+    expiry_date: expiryDate,
     storage_location: storageLocation,
-    status: "disponivel",
+    status: getPersistedInventoryStatus(quantity, expiryDate),
     notes
   };
 }

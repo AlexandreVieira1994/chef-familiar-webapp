@@ -2,16 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { updateRecipeStatus, type RecipeStatusState } from "@/app/recipes/actions";
+import { recipeStatusLabel } from "@/lib/recipe-status";
 
 const initialState: RecipeStatusState = { ok: false, message: "" };
-
-const statusLabels: Record<string, string> = {
-  por_testar: "Por testar",
-  aprovada: "Aprovada",
-  neutra: "Neutra",
-  a_melhorar: "A melhorar",
-  rejeitada: "Rejeitada"
-};
 
 export function RecipeFeedbackDropdown({
   recipeId,
@@ -32,7 +25,7 @@ export function RecipeFeedbackDropdown({
         onClick={() => setOpen((value) => !value)}
         className="min-w-36 rounded-lg border bg-white px-3 py-2 text-left text-sm hover:bg-neutral-50"
       >
-        {statusLabels[currentStatus] ?? currentStatus} <span className="text-neutral-400">▾</span>
+        {recipeStatusLabel(currentStatus)} <span className="text-neutral-400">▾</span>
       </button>
 
       {open && (

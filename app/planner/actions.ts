@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { isInventoryEntryUsable } from "@/lib/inventory-status";
 import { getSupabase } from "@/lib/supabase";
 
 type RecipeIngredient = {
@@ -15,6 +16,8 @@ type InventoryEntry = {
   ingredient_name: string;
   quantity_remaining: number;
   unit: string;
+  expiry_date: string | null;
+  status: string | null;
 };
 
 type ShoppingRow = {
@@ -54,8 +57,7 @@ export async function generateShoppingListFromRecipes(formData: FormData) {
 
   const { data: inventory, error: inventoryError } = await supabase
     .from("inventory_entries")
-    .select("ingredient_name, quantity_remaining, unit")
-    .eq("status", "disponivel");
+    .select("ingredient_name, quantity_remaining, unit, expiry_date, status");
 
   if (inventoryError) throw new Error(inventoryError.message);
 
@@ -86,7 +88,7 @@ export async function generateShoppingListFromRecipes(formData: FormData) {
   }
 
   const inventoryTotals = new Map<string, number>();
-  for (const entry of (inventory ?? []) as InventoryEntry[]) {
+  for (const entry of ((inventory ?? []) as InventoryEntry[]).filter(isInventoryEntryUsable)) {
     const key = keyFor(entry.ingredient_name, entry.unit);
     inventoryTotals.set(key, (inventoryTotals.get(key) ?? 0) + Number(entry.quantity_remaining ?? 0));
   }
