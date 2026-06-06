@@ -4,9 +4,47 @@
 
 :root {
   color-scheme: light;
+  --background: #f3f7f4;
+  --foreground: #17211b;
+  --muted: #647268;
+  --border: #dce5dc;
+  --surface: #ffffff;
+  --accent: #2f6b4f;
 }
 
 body {
-  background: #fafafa;
-  color: #171717;
+  background:
+    radial-gradient(circle at top left, rgba(80, 137, 94, 0.16), transparent 34rem),
+    radial-gradient(circle at top right, rgba(184, 92, 56, 0.1), transparent 26rem),
+    linear-gradient(180deg, #fbfcfb 0%, var(--background) 46%, #f7f9f7 100%);
+  color: var(--foreground);
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #d9ead7;
+  color: #17211b;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  background-color: #ffffff;
+  border-color: var(--border);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #2f6b4f;
+  box-shadow: 0 0 0 3px rgba(47, 107, 79, 0.12);
+  outline: none;
 }
