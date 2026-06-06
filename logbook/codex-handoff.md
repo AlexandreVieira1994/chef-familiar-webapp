@@ -284,3 +284,41 @@ Depois continuar com:
 ```text
 Continua o trabalho na app Chef Familiar a partir do logbook. Faz novo ciclo de QA na app inteira em producao, identifica correcoes/melhorias, aplica apenas alteracoes de escopo controlado, faz commit/push para GitHub e valida o deploy na Vercel.
 ```
+
+### Atualizacao posterior no mesmo dia
+
+Pedido do utilizador:
+
+- rever a web app outra vez;
+- remover redundancias;
+- em especial, deixar o estado dos ingredientes automatico;
+- iniciar a pagina de ingredientes com ingredientes colapsados;
+- melhorar o aspeto das entradas/lotes.
+
+Alteracoes aplicadas:
+
+- criado `lib/inventory-status.ts` para estado automatico de inventario;
+- estado de inventario deixou de ser escolhido manualmente na UI;
+- lotes com validade vencida passam a ser tratados como expirados automaticamente;
+- lotes expirados deixam de contar para o planeador e para o contexto do assistente;
+- remocao por soft remove continua preservada com `status = "removido"`;
+- pagina de inventario inicia ingredientes colapsados;
+- painel de cada ingrediente so mostra os lotes ao abrir;
+- entradas/lotes deixaram de ser tabela larga e passaram a cartoes editaveis;
+- estados tecnicos de receitas foram humanizados em receitas, detalhe e planeador.
+
+Commits desta ronda:
+
+- `8775897 Simplify inventory status and lot display`
+- `c4a9287 Fix collapsed inventory lot panels`
+
+Validacao em producao:
+
+- deployment Vercel do commit `c4a9287` ficou `READY`;
+- `/inventory` sem erros/warnings de consola;
+- ingredientes fechados por defeito;
+- lotes escondidos com altura 0 quando o ingrediente esta fechado;
+- abrir ingrediente mostra os lotes em cartoes;
+- nao existe `select[name="status"]` dentro do inventario;
+- `/planner` mostra estados humanos como `Por testar` e `Aprovada`;
+- `/recipes` mostra estado atual humanizado, mantendo o seletor de avaliacao rapida por ser feedback humano.
