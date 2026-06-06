@@ -4,6 +4,17 @@ import { buildInventoryEntry } from "@/lib/ai/inventory-utils";
 import { getAssistantModel, getOpenAIClient } from "@/lib/ai/openai";
 import type { AssistantInventoryItem, AssistantProposal, AssistantResponse } from "@/lib/ai/types";
 
+type AssistantContext = Awaited<ReturnType<typeof loadAssistantContext>>;
+
+type RecipeForAssistantPlan = {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  status: string;
+  notes?: string | null;
+};
+
 function safeJsonParse(value: string) {
   try {
     return JSON.parse(value) as Record<string, unknown>;
@@ -19,6 +30,69 @@ function asString(value: unknown, fallback = "") {
 function asNumber(value: unknown, fallback = 0) {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function nextWeekday(fromDate: string, targetWeekday: number) {
+  const date = new Date(`${fromDate}T00:00:00`);
+  const distance = (targetWeekday - date.getDay() + 7) % 7;
+  return addDays(fromDate, distance);
+}
+
+function statusRank(status: string) {
+  if (status === "aprovada") return 0;
+  if (status === "neutra") return 1;
+  if (status === "a_melhorar") return 2;
+  if (status === "por_testar") return 3;
+  return 4;
+}
+
+function isPlanRequest(message: string) {
+  return /plano|planeia|planeamento|ementa|refei[cç][oõ]es/i.test(message);
+}
+
+function requestedDays(message: string) {
+  const match = message.match(/(\d{1,2})\s*dias?/i);
+  if (!match) return 7;
+  const days = Number(match[1]);
+  return Number.isFinite(days) ? Math.min(Math.max(Math.trunc(days), 1), 14) : 7;
+}
+
+function selectedMealSlots(message: string) {
+  const slots: string[] = [];
+  if (/pequeno[- ]?almo[cç]o/i.test(message)) slots.push("pequeno_almoco");
+  if (/almo[cç]o/i.test(message)) slots.push("almoco");
+  if (/lanche/i.test(message)) slots.push("lanche");
+  if (/jantar/i.test(message)) slots.push("jantar");
+  return slots.length > 0 ? Array.from(new Set(slots)) : ["jantar"];
+}
+
+function asRecipeForPlan(value: unknown): RecipeForAssistantPlan | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const id = asString(record.id);
+  const code = asString(record.code);
+  const name = asString(record.name);
+  const category = asString(record.category);
+  const status = asString(record.status);
+  if (!id || !code || !name || !category) return null;
+  return {
+    id,
+    code,
+    name,
+    category,
+    status,
+    notes: typeof record.notes === "string" ? record.notes : null
+  };
 }
 
 function parseInventoryItems(value: unknown): AssistantInventoryItem[] {
@@ -58,6 +132,89 @@ function parseInventoryItems(value: unknown): AssistantInventoryItem[] {
   }
 
   return items;
+}
+
+function createBatchMealPlanProposal(message: string, context: AssistantContext): AssistantResponse | null {
+  if (!isPlanRequest(message)) return null;
+
+  const recipes = context.recipes
+    .map(asRecipeForPlan)
+    .filter((recipe): recipe is RecipeForAssistantPlan => Boolean(recipe))
+    .filter((recipe) => recipe.status !== "rejeitada")
+    .sort((a, b) => statusRank(a.status) - statusRank(b.status) || a.code.localeCompare(b.code));
+
+  if (recipes.length === 0) {
+    return {
+      message: "Não encontrei receitas disponíveis para criar um plano.",
+      requiresConfirmation: false,
+      logId: null,
+      proposal: { kind: "answer", summary: "Sem receitas disponíveis." }
+    };
+  }
+
+  const days = requestedDays(message);
+  const startDate = /domingo/i.test(message) ? nextWeekday(today(), 0) : today();
+  const endDate = addDays(startDate, days - 1);
+  const slots = selectedMealSlots(message);
+  const replaceExisting = !/sem substituir|n[aã]o substitu/i.test(message);
+  const cookingOnlySundayWednesday = /domingo/i.test(message) && /quarta/i.test(message);
+  const firstCookDay = startDate;
+  const secondCookDay = nextWeekday(startDate, 3);
+
+  const entries: Extract<AssistantProposal, { kind: "create_meal_plan" }>["entries"] = [];
+  let cursor = 0;
+  let fishCount = 0;
+
+  for (let day = 0; day < days; day += 1) {
+    const plannedDate = addDays(startDate, day);
+    const cookDate = cookingOnlySundayWednesday && plannedDate >= secondCookDay ? secondCookDay : firstCookDay;
+    const batchLabel = cookingOnlySundayWednesday
+      ? `Cozinhar em lote no dia ${cookDate}; reaquecer/usar sobras neste dia.`
+      : "Plano gerado pelo assistente.";
+
+    for (const slot of slots) {
+      let chosen = recipes[cursor % recipes.length];
+
+      for (let attempts = 0; attempts < recipes.length; attempts += 1) {
+        const candidate = recipes[(cursor + attempts) % recipes.length];
+        const isFish = candidate.category.toLowerCase().includes("peixe");
+        if (!isFish || fishCount < 2 || recipes.length <= 2) {
+          chosen = candidate;
+          cursor += attempts + 1;
+          break;
+        }
+      }
+
+      if (chosen.category.toLowerCase().includes("peixe")) fishCount += 1;
+
+      entries.push({
+        planned_date: plannedDate,
+        meal_slot: slot,
+        recipe_id: chosen.id,
+        recipe_code: chosen.code,
+        recipe_name: chosen.name,
+        notes: batchLabel
+      });
+    }
+  }
+
+  const summary = cookingOnlySundayWednesday
+    ? `Proponho um plano de ${days} dias, com cozinha apenas no domingo (${firstCookDay}) e na quarta (${secondCookDay}), respeitando o limite de peixe.`
+    : `Proponho um plano de ${days} dias com ${entries.length} refeição(ões).`;
+
+  return {
+    message: summary,
+    requiresConfirmation: false,
+    logId: null,
+    proposal: {
+      kind: "create_meal_plan",
+      summary,
+      start_date: startDate,
+      end_date: endDate,
+      replace_existing: replaceExisting,
+      entries
+    }
+  };
 }
 
 function fallbackShoppingAnswer(context: Awaited<ReturnType<typeof loadAssistantContext>>): AssistantResponse {
@@ -148,7 +305,7 @@ const tools = [
 function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantContext>>) {
   return [
     "És o assistente do Chef Familiar. Responde em português europeu, de forma curta e prática.",
-    "A v1 é focada em inventário e lista de compras. Não inventes alterações persistentes.",
+    "A v1 suporta inventário, lista de compras e planos simples. Não inventes alterações persistentes.",
     "Quando o utilizador disser que comprou/trouxe/adicionou ingredientes, usa a ferramenta propose_inventory_entries.",
     "Quando o utilizador pedir para marcar um item da lista como comprado, usa propose_mark_shopping_item_purchased e escolhe um item_id real do contexto.",
     "Se estiveres apenas a responder a uma pergunta, não uses ferramentas.",
@@ -178,6 +335,17 @@ export async function createAssistantProposal(userMessage: string): Promise<Assi
       proposal: { kind: "answer", summary: "Supabase não configurada." }
     };
   }
+
+  const mealPlanProposal = createBatchMealPlanProposal(message, context);
+  if (mealPlanProposal?.proposal.kind === "create_meal_plan") {
+    const logId = await createAssistantActionLog(message, mealPlanProposal.proposal);
+    return {
+      ...mealPlanProposal,
+      requiresConfirmation: Boolean(logId),
+      logId
+    };
+  }
+  if (mealPlanProposal) return mealPlanProposal;
 
   if (/falta|comprar|lista/i.test(message) && !/comprei|trouxe|adicionei|marca/i.test(message)) {
     return fallbackShoppingAnswer(context);

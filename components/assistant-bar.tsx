@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { AssistantProposal, AssistantResponse } from "@/lib/ai/types";
 
 type Status = "idle" | "loading" | "confirming" | "error";
@@ -21,6 +22,7 @@ type SpeechRecognitionLike = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 const suggestions = [
+  "Plano 7 dias, cozinhar domingo e quarta",
   "Comprei 1 kg batata e 6 ovos",
   "O que falta comprar?",
   "Marcar leite como comprado"
@@ -35,7 +37,7 @@ function getSpeechRecognitionConstructor() {
   return browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition ?? null;
 }
 
-function proposalDetails(proposal: AssistantProposal) {
+function proposalDetails(proposal: AssistantProposal): ReactNode {
   if (proposal.kind === "add_inventory_entries") {
     return proposal.items.map((item) => (
       <li key={`${item.ingredient_name}-${item.quantity}-${item.unit}`} className="rounded-lg bg-white px-3 py-2">
@@ -57,7 +59,18 @@ function proposalDetails(proposal: AssistantProposal) {
     );
   }
 
-  return <li className="rounded-lg bg-white px-3 py-2">{proposal.summary}</li>;
+  if (proposal.kind === "create_meal_plan") {
+    return proposal.entries.map((entry) => (
+      <li key={`${entry.planned_date}-${entry.meal_slot}-${entry.recipe_id}`} className="rounded-lg bg-white px-3 py-2">
+        <span className="font-medium text-[#17211b]">{entry.planned_date}</span>{" "}
+        <span className="text-[#647268]">
+          {entry.meal_slot} · {entry.recipe_code} · {entry.recipe_name}. {entry.notes}
+        </span>
+      </li>
+    ));
+  }
+
+  return null;
 }
 
 export function AssistantBar() {
@@ -76,6 +89,7 @@ export function AssistantBar() {
     () => Boolean(response?.requiresConfirmation && response.logId),
     [response]
   );
+  const details = response ? proposalDetails(response.proposal) : null;
 
   async function askAssistant(message: string) {
     setStatus("loading");
@@ -214,8 +228,8 @@ export function AssistantBar() {
   return (
     <>
       {isOpen && (
-        <aside className="fixed bottom-24 right-4 z-40 w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-[#d7e2d8] bg-white/95 p-4 shadow-[0_22px_70px_rgba(33,48,38,0.18)] backdrop-blur">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        <aside className="fixed bottom-24 right-4 z-40 flex max-h-[calc(100dvh-7rem)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-[#d7e2d8] bg-white/95 p-4 shadow-[0_22px_70px_rgba(33,48,38,0.18)] backdrop-blur">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-[#17211b]">Assistente Chef Familiar</p>
               <p className="text-xs text-[#647268]">{isListening ? "A ouvir..." : "Inventário e compras"}</p>
@@ -233,7 +247,7 @@ export function AssistantBar() {
             </button>
           </div>
 
-          <form onSubmit={submit} className="space-y-3">
+          <form onSubmit={submit} className="shrink-0 space-y-3">
             <div className="flex gap-2">
               <textarea
                 id="assistant-input"
@@ -267,7 +281,7 @@ export function AssistantBar() {
             </div>
           </form>
 
-          <div className="mt-3 min-h-16 rounded-xl border border-[#dce5dc] bg-[#edf5ef] p-3 text-sm">
+          <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl border border-[#dce5dc] bg-[#edf5ef] p-3 text-sm">
             {!response && !error && !voiceMessage && (
               <p className="text-xs leading-5 text-[#647268]">
                 Pede atualizações de inventário ou confirma compras sem sair da página.
@@ -285,9 +299,9 @@ export function AssistantBar() {
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#b85c38]">
                     {canConfirm ? "Proposta para confirmar" : "Resposta"}
                   </p>
-                  <p className="mt-1 font-semibold text-[#17211b]">{response.message}</p>
+                  <p className="mt-1 break-words font-semibold text-[#17211b]">{response.message}</p>
                 </div>
-                <ul className="space-y-1.5 text-xs text-[#647268]">{proposalDetails(response.proposal)}</ul>
+                {details && <ul className="space-y-1.5 break-words text-xs text-[#647268]">{details}</ul>}
                 {canConfirm && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
@@ -313,6 +327,24 @@ export function AssistantBar() {
                       type="button"
                     >
                       Cancelar
+                    </button>
+                  </div>
+                )}
+                {!canConfirm && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
+                      onClick={correct}
+                      type="button"
+                    >
+                      Nova pergunta
+                    </button>
+                    <button
+                      className="rounded-lg border border-[#cdddcf] bg-white px-3 py-2 text-xs font-semibold text-[#243028]"
+                      onClick={() => setIsOpen(false)}
+                      type="button"
+                    >
+                      Fechar
                     </button>
                   </div>
                 )}

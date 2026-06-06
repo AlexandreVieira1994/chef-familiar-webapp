@@ -22,6 +22,21 @@ export type AssistantProposal =
       purchased_unit?: string;
     }
   | {
+      kind: "create_meal_plan";
+      summary: string;
+      start_date: string;
+      end_date: string;
+      replace_existing: boolean;
+      entries: Array<{
+        planned_date: string;
+        meal_slot: string;
+        recipe_id: string;
+        recipe_code: string;
+        recipe_name: string;
+        notes: string;
+      }>;
+    }
+  | {
       kind: "answer";
       summary: string;
     };

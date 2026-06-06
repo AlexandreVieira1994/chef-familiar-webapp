@@ -154,6 +154,38 @@ export async function executeAssistantProposal(logId: string) {
       return { ok: true, message: "Item marcado como comprado e adicionado ao inventário.", result };
     }
 
+    if (proposal.kind === "create_meal_plan") {
+      if (proposal.entries.length === 0) throw new Error("Plano sem refeições para criar.");
+
+      const slots = Array.from(new Set(proposal.entries.map((entry) => entry.meal_slot)));
+
+      if (proposal.replace_existing) {
+        const { error: deleteError } = await supabase
+          .from("meal_plan_entries")
+          .delete()
+          .gte("planned_date", proposal.start_date)
+          .lte("planned_date", proposal.end_date)
+          .in("meal_slot", slots);
+
+        if (deleteError) throw new Error(deleteError.message);
+      }
+
+      const { data, error } = await supabase
+        .from("meal_plan_entries")
+        .insert(proposal.entries.map((entry) => ({
+          planned_date: entry.planned_date,
+          meal_slot: entry.meal_slot,
+          recipe_id: entry.recipe_id,
+          notes: entry.notes
+        })))
+        .select("id, planned_date, meal_slot, recipe_id");
+
+      if (error) throw new Error(error.message);
+
+      await updateAssistantActionLog(logId, "executed", data ?? []);
+      return { ok: true, message: "Plano criado no Planeador.", result: data ?? [] };
+    }
+
     throw new Error("Esta resposta não tem ação executável.");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro desconhecido.";

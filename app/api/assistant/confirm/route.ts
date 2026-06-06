@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     const result = await executeAssistantProposal(logId);
     revalidatePath("/inventory", "page");
     revalidatePath("/shopping", "page");
+    revalidatePath("/planner", "page");
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro inesperado ao confirmar.";
