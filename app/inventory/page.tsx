@@ -1,11 +1,12 @@
 import { Card } from "@/components/card";
+import { SelectedInventoryDeleteForm } from "@/components/selected-inventory-delete-form";
 import {
   getAutomaticInventoryStatus,
   inventoryStatusLabel,
   isInventoryEntryUsable
 } from "@/lib/inventory-status";
 import { getSupabase } from "@/lib/supabase";
-import { addInventoryEntry, deleteInventoryEntry, updateInventoryEntry } from "./actions";
+import { addInventoryEntry, deleteInventoryEntry, deleteSelectedInventoryEntries, updateInventoryEntry } from "./actions";
 
 type InventoryEntry = {
   id: string;
@@ -116,6 +117,7 @@ export default async function InventoryPage() {
   const availableEntries = entries.filter(isInventoryEntryUsable);
   const expiredCount = entries.filter((entry) => getAutomaticInventoryStatus(entry) === "expirado").length;
   const emptyCount = entries.filter((entry) => getAutomaticInventoryStatus(entry) === "sem_stock").length;
+  const bulkDeleteFormId = "delete-selected-inventory-entries";
 
   return (
     <div className="space-y-6">
@@ -183,6 +185,11 @@ export default async function InventoryPage() {
 
       <Card title="Inventário atual">
         <div className="space-y-3">
+          {groups.length > 0 && (
+            <div className="rounded-lg border border-[#dce5dc] bg-[#fbfdfb] p-3">
+              <SelectedInventoryDeleteForm action={deleteSelectedInventoryEntries} formId={bulkDeleteFormId} />
+            </div>
+          )}
           {groups.map((group) => {
             const currentGroupStatus = groupStatus(group.entries);
             const currentExpiry = earliestExpiry(group.entries);
@@ -209,12 +216,22 @@ export default async function InventoryPage() {
                     return (
                       <article key={entry.id} className="rounded-lg border bg-white p-4 shadow-sm" data-testid="inventory-entry-row">
                         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">Lote {index + 1}</p>
-                            <p className="text-xs text-neutral-500">
+                          <label className="flex items-start gap-2">
+                            <input
+                              form={bulkDeleteFormId}
+                              type="checkbox"
+                              name="entry_id"
+                              value={entry.id}
+                              className="mt-1"
+                              aria-label={`Selecionar ${entry.ingredient_name}, lote ${index + 1}`}
+                            />
+                            <span className="block">
+                            <span className="block text-sm font-semibold">Lote {index + 1}</span>
+                            <span className="block text-xs text-neutral-500">
                               Inicial: {formatQuantity(entry.quantity_initial, entry.unit)} · Validade: {formatDate(entry.expiry_date)}
-                            </p>
-                          </div>
+                            </span>
+                            </span>
+                          </label>
                           <span className={`rounded-full border px-2 py-1 text-xs font-medium ${statusBadgeClass(entryStatus)}`}>
                             {inventoryStatusLabel(entryStatus)}
                           </span>

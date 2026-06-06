@@ -172,3 +172,36 @@ export async function deleteInventoryEntry(formData: FormData) {
 
   revalidatePath("/inventory");
 }
+
+export async function deleteSelectedInventoryEntries(formData: FormData) {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error("Supabase is not configured");
+  }
+
+  const entryIds = Array.from(new Set(
+    formData
+      .getAll("entry_id")
+      .map((value) => text(value))
+      .filter(Boolean)
+  ));
+
+  if (entryIds.length === 0) {
+    throw new Error("Seleciona pelo menos uma entrada de inventario.");
+  }
+
+  const { error } = await supabase
+    .from("inventory_entries")
+    .update({
+      quantity_remaining: 0,
+      status: "removido",
+      notes: "Entrada removida em selecao pela app."
+    })
+    .in("id", entryIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/inventory");
+}
