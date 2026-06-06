@@ -1,6 +1,7 @@
 # Codex handoff - Chef Familiar
 
-Data: 2026-06-06
+## 2026-06-06
+
 Projeto: Chef Familiar Webapp
 Workspace local: `C:\Users\remotedesk\OneDrive\Projetos\chef-familiar-webapp\chef-familiar-webapp`
 GitHub: `https://github.com/AlexandreVieira1994/chef-familiar-webapp`
@@ -276,7 +277,7 @@ Supabase:
 
 Ler este ficheiro primeiro:
 
-`logbook/2026-06-06-codex-handoff.md`
+`logbook/codex-handoff.md`
 
 Depois continuar com:
 
