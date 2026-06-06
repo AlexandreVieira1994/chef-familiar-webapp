@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { familyRulesText, loadFamilyRules } from "@/lib/family-rules";
+import { getAssistantModel, getOpenAIClient } from "@/lib/ai/openai";
 import { isInventoryEntryUsable } from "@/lib/inventory-status";
 import { getSupabase } from "@/lib/supabase";
 
@@ -33,8 +35,36 @@ type ShoppingRow = {
 type RecipeForPlan = {
   id: string;
   code: string;
+  name?: string;
   status: string;
   category: string;
+  cost_level?: string | null;
+  prep_time_min?: number | null;
+  cook_time_min?: number | null;
+  notes?: string | null;
+};
+
+type RecipeIngredientForPlan = {
+  recipe_id: string;
+  ingredient_name: string;
+};
+
+type GeneratedRecipe = {
+  name: string;
+  category: string;
+  prep_time_min: number;
+  cook_time_min: number;
+  cost_level: string;
+  blw_summary: string;
+  separation_moment: string;
+  notes: string;
+  ingredients: Array<{
+    ingredient_name: string;
+    quantity: number | null;
+    unit: string | null;
+    category: string | null;
+    blw_notes: string | null;
+  }>;
 };
 
 const mealSlots = ["pequeno_almoco", "almoco", "lanche", "jantar"];
@@ -85,6 +115,172 @@ function statusRank(status: string) {
   if (status === "neutra") return 1;
   if (status === "a_melhorar") return 2;
   return 3;
+}
+
+function recipeStyleLabel(style: string) {
+  if (style === "requintadas") return "mais requintadas";
+  if (style === "arrojadas") return "mais arrojadas";
+  if (style === "aproveitamento") return "focadas em aproveitar ingredientes a expirar";
+  return "simples e praticas";
+}
+
+function styleRank(recipe: RecipeForPlan, style: string) {
+  const textValue = `${recipe.name ?? ""} ${recipe.category} ${recipe.cost_level ?? ""} ${recipe.notes ?? ""}`.toLowerCase();
+  const totalTime = Number(recipe.prep_time_min ?? 0) + Number(recipe.cook_time_min ?? 0);
+
+  if (style === "simples") return totalTime <= 30 || textValue.includes("simples") || textValue.includes("rapida") ? 0 : 1;
+  if (style === "requintadas") return textValue.includes("forno") || textValue.includes("gratin") || totalTime >= 35 ? 0 : 1;
+  if (style === "arrojadas") return textValue.includes("estufado") || textValue.includes("mediterr") || textValue.includes("hamburg") ? 0 : 1;
+  if (style === "aproveitamento") return textValue.includes("sobra") || textValue.includes("congel") || textValue.includes("quantidade") ? 0 : 1;
+  return 0;
+}
+
+function isSoonExpiring(expiryDate: string | null, startDate: string) {
+  if (!expiryDate) return false;
+  return expiryDate >= startDate && expiryDate <= addDays(startDate, 7);
+}
+
+function fishLimitFromRules(rulesText: string) {
+  const fishRule = rulesText.match(/peixe[^\d]*(\d+)/i);
+  const parsed = fishRule ? Number(fishRule[1]) : 2;
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 2;
+}
+
+function safeJsonArray(value: string): GeneratedRecipe[] {
+  const trimmed = value.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return Array.isArray(parsed) ? parsed as GeneratedRecipe[] : [];
+  } catch {
+    return [];
+  }
+}
+
+async function nextRecipeCode() {
+  const supabase = getSupabase();
+  if (!supabase) return "AI001";
+
+  const { data } = await supabase
+    .from("recipes")
+    .select("code")
+    .like("code", "AI%")
+    .order("code", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const current = typeof data?.code === "string" ? Number(data.code.replace(/\D/g, "")) : 0;
+  return `AI${String((Number.isFinite(current) ? current : 0) + 1).padStart(3, "0")}`;
+}
+
+async function generateAndStoreRecipes(style: string, count: number, startDate: string) {
+  const supabase = getSupabase();
+  if (!supabase || count <= 0) return [] as RecipeForPlan[];
+
+  const rules = await loadFamilyRules();
+  const { data: inventory } = await supabase
+    .from("inventory_entries")
+    .select("ingredient_name, quantity_remaining, unit, expiry_date, status")
+    .order("expiry_date", { ascending: true });
+
+  const expiring = ((inventory ?? []) as InventoryEntry[])
+    .filter(isInventoryEntryUsable)
+    .filter((entry) => isSoonExpiring(entry.expiry_date, startDate))
+    .slice(0, 8);
+
+  const client = getOpenAIClient();
+  const generated: GeneratedRecipe[] = [];
+
+  if (client) {
+    const completion = await client.chat.completions.create({
+      model: getAssistantModel(),
+      messages: [
+        {
+          role: "system",
+          content: [
+            "Cria receitas familiares em portugues europeu e devolve apenas JSON.",
+            "Formato: objeto com a chave recipes, contendo objetos com name, category, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes, ingredients.",
+            "Em notes escreve passos numerados curtos e suficientes para cozinhar a receita.",
+            `Regras obrigatorias:\n${familyRulesText(rules)}`,
+            `Estilo pretendido: ${recipeStyleLabel(style)}.`,
+            `Ingredientes a priorizar quando fizer sentido: ${expiring.map((item) => item.ingredient_name).join(", ") || "nenhum"}`
+          ].join("\n")
+        },
+        { role: "user", content: `Gera ${count} receita(s) novas para inserir na base de dados.` }
+      ],
+      response_format: { type: "json_object" }
+    });
+
+    const content = completion.choices[0]?.message.content ?? "";
+    const parsed = safeJsonArray(content);
+    if (parsed.length > 0) generated.push(...parsed);
+    else {
+      try {
+        const objectParsed = JSON.parse(content) as { recipes?: GeneratedRecipe[] };
+        if (Array.isArray(objectParsed.recipes)) generated.push(...objectParsed.recipes);
+      } catch {}
+    }
+  }
+
+  if (generated.length === 0 && expiring.length > 0) {
+    generated.push({
+      name: `Prato simples de ${expiring[0].ingredient_name}`,
+      category: "Aproveitamento",
+      prep_time_min: 10,
+      cook_time_min: 20,
+      cost_level: "baixo",
+      blw_summary: "Texturas macias, sem sal e com os ingredientes cortados de forma adequada.",
+      separation_moment: "Separar a porcao da bebe antes de salgar ou juntar temperos fortes.",
+      notes: `1. Preparar ${expiring[0].ingredient_name} e legumes disponiveis.\n2. Cozinhar ate ficar tudo macio.\n3. Separar a porcao BLW sem sal.\n4. Ajustar temperos dos adultos no fim.`,
+      ingredients: expiring.slice(0, 3).map((item) => ({
+        ingredient_name: item.ingredient_name,
+        quantity: 1,
+        unit: item.unit,
+        category: null,
+        blw_notes: "Cozinhar ate ficar macio."
+      }))
+    });
+  }
+
+  const inserted: RecipeForPlan[] = [];
+
+  for (const recipe of generated.slice(0, count)) {
+    const code = await nextRecipeCode();
+    const { data: insertedRecipe, error } = await supabase
+      .from("recipes")
+      .insert({
+        code,
+        name: recipe.name,
+        category: recipe.category,
+        status: "por_testar",
+        prep_time_min: recipe.prep_time_min,
+        cook_time_min: recipe.cook_time_min,
+        cost_level: recipe.cost_level,
+        blw_summary: recipe.blw_summary,
+        separation_moment: recipe.separation_moment,
+        notes: recipe.notes
+      })
+      .select("id, code, name, status, category, cost_level, prep_time_min, cook_time_min, notes")
+      .single();
+
+    if (error || !insertedRecipe) continue;
+
+    const ingredients = (recipe.ingredients ?? []).filter((item) => item.ingredient_name).map((item) => ({
+      recipe_id: insertedRecipe.id,
+      ingredient_name: item.ingredient_name,
+      quantity: item.quantity,
+      unit: item.unit,
+      category: item.category,
+      blw_notes: item.blw_notes
+    }));
+
+    if (ingredients.length > 0) {
+      await supabase.from("recipe_ingredients").insert(ingredients);
+    }
+
+    inserted.push(insertedRecipe as RecipeForPlan);
+  }
+
+  return inserted;
 }
 
 async function createShoppingListFromRecipeIds(recipeIds: string[], startDate?: string, endDate?: string) {
@@ -165,6 +361,11 @@ async function createShoppingListFromRecipeIds(recipeIds: string[], startDate?: 
     });
   }
 
+  await supabase
+    .from("shopping_lists")
+    .update({ status: "substituida" })
+    .eq("status", "ativa");
+
   const { data: list, error: listError } = await supabase
     .from("shopping_lists")
     .insert({ start_date: startDate ?? null, end_date: endDate ?? null, status: "ativa" })
@@ -240,10 +441,13 @@ export async function generateMealPlan(formData: FormData) {
   const days = limitedNumber(formData.get("days"), 7, 1, 14);
   const slots = chosenMealSlots(formData);
   const replaceExisting = formData.get("replace_existing") === "on";
+  const recipeStyle = text(formData.get("recipe_style")) || "simples";
 
   if (!isDate(startDate)) throw new Error("Data inicial invalida.");
 
   const endDate = addDays(startDate, days - 1);
+  const rulesText = familyRulesText(await loadFamilyRules());
+  const weeklyFishLimit = fishLimitFromRules(rulesText);
 
   if (replaceExisting) {
     const { error: deleteError } = await supabase
@@ -258,17 +462,62 @@ export async function generateMealPlan(formData: FormData) {
 
   const { data: recipes, error: recipesError } = await supabase
     .from("recipes")
-    .select("id, code, status, category")
+    .select("id, code, name, status, category, cost_level, prep_time_min, cook_time_min, notes")
     .neq("status", "rejeitada")
     .order("status", { ascending: true })
     .order("code", { ascending: true });
 
   if (recipesError) throw new Error(recipesError.message);
 
-  const candidates = ((recipes ?? []) as RecipeForPlan[])
-    .sort((a, b) => statusRank(a.status) - statusRank(b.status) || a.code.localeCompare(b.code));
+  const neededMeals = days * slots.length;
+  const generatedRecipes = neededMeals > (recipes?.length ?? 0)
+    ? await generateAndStoreRecipes(recipeStyle, Math.min(4, neededMeals - (recipes?.length ?? 0)), startDate)
+    : [];
 
-  if (candidates.length === 0) throw new Error("Nao ha receitas disponiveis para gerar plano.");
+  const allRecipes = [...((recipes ?? []) as RecipeForPlan[]), ...generatedRecipes];
+  if (allRecipes.length === 0) throw new Error("Nao ha receitas disponiveis para gerar plano.");
+
+  const [ingredientsResult, recentPlanResult, inventoryResult] = await Promise.all([
+    supabase
+      .from("recipe_ingredients")
+      .select("recipe_id, ingredient_name")
+      .in("recipe_id", allRecipes.map((recipe) => recipe.id)),
+    supabase
+      .from("meal_plan_entries")
+      .select("recipe_id, planned_date")
+      .gte("planned_date", addDays(startDate, -30))
+      .lt("planned_date", startDate),
+    supabase
+      .from("inventory_entries")
+      .select("ingredient_name, quantity_remaining, unit, expiry_date, status")
+      .order("expiry_date", { ascending: true })
+  ]);
+
+  const recentRecipeIds = new Set((recentPlanResult.data ?? []).map((entry: { recipe_id: string | null }) => entry.recipe_id).filter(Boolean));
+  const expiringIngredients = new Set(
+    ((inventoryResult.data ?? []) as InventoryEntry[])
+      .filter(isInventoryEntryUsable)
+      .filter((entry) => isSoonExpiring(entry.expiry_date, startDate))
+      .map((entry) => normalize(entry.ingredient_name))
+  );
+  const expiringMatches = new Map<string, number>();
+
+  for (const ingredient of (ingredientsResult.data ?? []) as RecipeIngredientForPlan[]) {
+    if (expiringIngredients.has(normalize(ingredient.ingredient_name))) {
+      expiringMatches.set(ingredient.recipe_id, (expiringMatches.get(ingredient.recipe_id) ?? 0) + 1);
+    }
+  }
+
+  const candidates = allRecipes
+    .sort((a, b) => {
+      const expiringScore = (expiringMatches.get(b.id) ?? 0) - (expiringMatches.get(a.id) ?? 0);
+      if (expiringScore !== 0) return expiringScore;
+      const recentScore = Number(recentRecipeIds.has(a.id)) - Number(recentRecipeIds.has(b.id));
+      if (recentScore !== 0) return recentScore;
+      return styleRank(a, recipeStyle) - styleRank(b, recipeStyle)
+        || statusRank(a.status) - statusRank(b.status)
+        || a.code.localeCompare(b.code);
+    });
 
   const rows: Array<{ planned_date: string; meal_slot: string; recipe_id: string; notes: string }> = [];
   let cursor = 0;
@@ -284,7 +533,7 @@ export async function generateMealPlan(formData: FormData) {
       for (let attempts = 0; attempts < candidates.length; attempts += 1) {
         const candidate = candidates[(cursor + attempts) % candidates.length];
         const isFish = candidate.category.toLowerCase().includes("peixe");
-        if (!isFish || fishCount < 2 || candidates.length <= 2) {
+        if (!isFish || fishCount < weeklyFishLimit || candidates.length <= 2) {
           chosen = candidate;
           cursor += attempts + 1;
           foundCandidate = true;
@@ -299,7 +548,7 @@ export async function generateMealPlan(formData: FormData) {
         planned_date: plannedDate,
         meal_slot: slot,
         recipe_id: chosen.id,
-        notes: "Plano gerado automaticamente."
+        notes: `Plano gerado automaticamente (${recipeStyleLabel(recipeStyle)}).`
       });
     }
   }

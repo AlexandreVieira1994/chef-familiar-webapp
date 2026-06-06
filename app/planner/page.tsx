@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card } from "@/components/card";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -35,6 +36,13 @@ const mealSlotOptions = [
   { value: "almoco", label: "Almoco" },
   { value: "lanche", label: "Lanche" },
   { value: "jantar", label: "Jantar" }
+];
+
+const recipeStyleOptions = [
+  { value: "simples", label: "Mais simples" },
+  { value: "requintadas", label: "Mais requintadas" },
+  { value: "arrojadas", label: "Mais arrojadas" },
+  { value: "aproveitamento", label: "Aproveitar validade" }
 ];
 
 function today() {
@@ -187,6 +195,14 @@ export default async function PlannerPage() {
                 ))}
               </div>
             </fieldset>
+            <label className="block text-sm font-medium">
+              Tipo de receitas
+              <select name="recipe_style" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" defaultValue="simples">
+                {recipeStyleOptions.map((style) => (
+                  <option key={style.value} value={style.value}>{style.label}</option>
+                ))}
+              </select>
+            </label>
             <label className="flex items-center gap-2 text-sm text-neutral-600">
               <input type="checkbox" name="replace_existing" defaultChecked />
               Substituir plano existente nesse intervalo
@@ -265,7 +281,16 @@ export default async function PlannerPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-medium uppercase text-neutral-500">{mealSlotLabel(entry.meal_slot)}</p>
-                          <p className="mt-1 font-medium">{entry.recipes?.name ?? "Receita removida"}</p>
+                          {entry.recipes ? (
+                            <Link
+                              href={`/recipes/${entry.recipes.code}`}
+                              className="mt-1 block font-medium underline-offset-2 hover:underline"
+                            >
+                              {entry.recipes.name}
+                            </Link>
+                          ) : (
+                            <p className="mt-1 font-medium">Receita removida</p>
+                          )}
                           {entry.recipes && (
                             <p className="text-xs text-neutral-500">{entry.recipes.code} - {entry.recipes.category}</p>
                           )}

@@ -83,6 +83,18 @@ function statusRank(status: string) {
   return 4;
 }
 
+function fishLimitFromContext(context: AssistantContext) {
+  const rulesText = Array.isArray(context.familyRules)
+    ? context.familyRules.map((rule) => {
+      const row = rule as { rule_value?: unknown };
+      return typeof row.rule_value === "string" ? row.rule_value : "";
+    }).join("\n")
+    : "";
+  const match = rulesText.match(/peixe[^\d]*(\d+)/i);
+  const parsed = match ? Number(match[1]) : 2;
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 2;
+}
+
 function isPlanRequest(message: string) {
   return /plano|planeia|planeamento|ementa|refei[cç][oõ]es/i.test(message);
 }
@@ -243,6 +255,7 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
   const endDate = addDays(startDate, days - 1);
   const slots = selectedMealSlots(planningContext);
   const replaceExisting = !/sem substituir|n[aã]o substitu/i.test(planningContext);
+  const weeklyFishLimit = fishLimitFromContext(context);
   const cookingOnlySundayWednesday = /domingo/i.test(planningContext) && /quarta/i.test(planningContext);
   const firstCookDay = startDate;
   const secondCookDay = nextWeekday(startDate, 3);
@@ -264,7 +277,7 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
       for (let attempts = 0; attempts < recipes.length; attempts += 1) {
         const candidate = recipes[(cursor + attempts) % recipes.length];
         const isFish = candidate.category.toLowerCase().includes("peixe");
-        if (!isFish || fishCount < 2 || recipes.length <= 2) {
+        if (!isFish || fishCount < weeklyFishLimit || recipes.length <= 2) {
           chosen = candidate;
           cursor += attempts + 1;
           break;
@@ -393,6 +406,7 @@ function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantConte
     "Es o assistente geral do Chef Familiar. Funcionas como chat da app inteira, nao como assistente de uma unica pagina.",
     "Responde em portugues europeu, de forma curta, pratica e orientada para a tarefa do utilizador.",
     "Ajuda com receitas, inventario, compras, planeador, regras da familia, BLW, aproveitamento de sobras e navegacao conceptual da app.",
+    "As familyRules do contexto sao regras obrigatorias para sugerir planos, receitas, ingredientes, compras e adaptacoes.",
     "Usa o historico da conversa para entender pedidos como alterar, refazer, trocar, confirmar ou continuar.",
     "So cries propostas executaveis quando o utilizador pedir uma acao clara. Se for pergunta, conselho, comparacao ou explicacao, responde em texto.",
     "Nunca transformes uma confirmacao textual isolada em inventario ou compras. Confirmacoes de propostas sao tratadas pela interface.",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/card";
+import { getSupabase } from "@/lib/supabase";
 
 const steps = [
   {
@@ -28,7 +29,65 @@ const quickActions = [
   { label: "Rever regras", href: "/settings" }
 ];
 
-export default function DashboardPage() {
+type CalendarEntry = {
+  id: string;
+  planned_date: string;
+  meal_slot: string;
+  recipes: { code: string; name: string; category: string } | { code: string; name: string; category: string }[] | null;
+};
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDay(dateValue: string) {
+  return new Date(`${dateValue}T00:00:00`).toLocaleDateString("pt-PT", {
+    weekday: "short",
+    day: "2-digit"
+  });
+}
+
+function mealSlotLabel(value: string) {
+  if (value === "pequeno_almoco") return "Pequeno-almoco";
+  if (value === "almoco") return "Almoco";
+  if (value === "lanche") return "Lanche";
+  if (value === "jantar") return "Jantar";
+  return value;
+}
+
+async function loadCalendarEntries() {
+  const supabase = getSupabase();
+  if (!supabase) return [] as CalendarEntry[];
+
+  const startDate = today();
+  const { data } = await supabase
+    .from("meal_plan_entries")
+    .select("id, planned_date, meal_slot, recipes(code, name, category)")
+    .gte("planned_date", startDate)
+    .lte("planned_date", addDays(startDate, 13))
+    .order("planned_date", { ascending: true })
+    .order("meal_slot", { ascending: true });
+
+  return (data ?? []) as CalendarEntry[];
+}
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default async function DashboardPage() {
+  const calendarEntries = await loadCalendarEntries();
+  const entriesByDate = calendarEntries.reduce<Record<string, CalendarEntry[]>>((groups, entry) => {
+    groups[entry.planned_date] = [...(groups[entry.planned_date] ?? []), entry];
+    return groups;
+  }, {});
+  const calendarDays = Array.from({ length: 14 }, (_, index) => addDays(today(), index));
+
   return (
     <div className="space-y-8">
       <section className="grid gap-6 md:grid-cols-[minmax(0,1fr)_340px] md:items-stretch">
@@ -105,6 +164,37 @@ export default function DashboardPage() {
           </p>
         </Card>
       </section>
+
+      <Card title="Calendario de receitas">
+        <div className="grid gap-3 md:grid-cols-7">
+          {calendarDays.map((date) => {
+            const entries = entriesByDate[date] ?? [];
+            return (
+              <section key={date} className="min-h-36 rounded-lg border border-[#dce5dc] bg-[#fbfdfb] p-3">
+                <h3 className="text-xs font-semibold uppercase text-[#647268]">{formatDay(date)}</h3>
+                <div className="mt-3 space-y-2">
+                  {entries.map((entry) => {
+                    const recipe = Array.isArray(entry.recipes) ? entry.recipes[0] : entry.recipes;
+                    return (
+                      <div key={entry.id} className="rounded-lg bg-white p-2 text-xs shadow-sm">
+                        <p className="font-semibold text-[#2f6b4f]">{mealSlotLabel(entry.meal_slot)}</p>
+                        {recipe ? (
+                          <Link href={`/recipes/${recipe.code}`} className="mt-1 block font-medium text-[#17211b] underline-offset-2 hover:underline">
+                            {recipe.name}
+                          </Link>
+                        ) : (
+                          <p className="mt-1 text-neutral-500">Receita removida</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {entries.length === 0 && <p className="text-xs text-[#8a978e]">Sem receita</p>}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 }

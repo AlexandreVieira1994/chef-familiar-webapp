@@ -26,6 +26,14 @@ type Recipe = {
 };
 type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; blw_notes: string | null };
 
+function preparationSteps(notes: string | null) {
+  if (!notes) return [];
+  return notes
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\d+[\).\s-]*/, "").trim())
+    .filter(Boolean);
+}
+
 async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: Ingredient[] } | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -51,6 +59,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
   const { recipe, ingredients } = result;
   const history = Array.isArray(recipe.feedback_history) ? recipe.feedback_history : [];
   const totalTime = (recipe.prep_time_min ?? 0) + (recipe.cook_time_min ?? 0);
+  const steps = preparationSteps(recipe.notes);
 
   return (
     <div className="space-y-6">
@@ -96,6 +105,16 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         <table className="w-full text-left text-sm">
           <tbody>{ingredients.map((i) => <tr key={i.id} className="border-b"><td className="py-2 font-medium">{i.ingredient_name}</td><td>{i.quantity ?? "-"} {i.unit ?? ""}</td><td>{i.blw_notes ?? "-"}</td></tr>)}</tbody>
         </table>
+      </Card>
+
+      <Card title="Como fazer">
+        {steps.length > 0 ? (
+          <ol className="list-decimal space-y-2 pl-5 text-sm leading-6 text-neutral-700">
+            {steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}
+          </ol>
+        ) : (
+          <p className="text-sm text-neutral-700">Sem passos guardados. Usa os ingredientes e as notas BLW para preparar uma versao simples e macia.</p>
+        )}
       </Card>
 
       <Card title="Adaptação BLW"><p className="text-sm text-neutral-700">{recipe.blw_summary ?? "Sem notas BLW."}</p></Card>
