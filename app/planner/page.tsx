@@ -1,4 +1,5 @@
 import { Card } from "@/components/card";
+import { RecipePickerForm } from "@/components/recipe-picker-form";
 import { getSupabase } from "@/lib/supabase";
 import { generateShoppingListFromRecipes } from "./actions";
 
@@ -32,26 +33,12 @@ export default async function PlannerPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Planeador</h1>
-        <p className="mt-2 text-neutral-600">Escolhe receitas e gera uma lista de compras ajustada ao inventário.</p>
+        <p className="mt-2 text-neutral-600">
+          Escolhe receitas e gera uma lista de compras ajustada ao inventário.
+        </p>
       </div>
       <Card title="Gerar lista de compras por receitas">
-        <form action={generateShoppingListFromRecipes} className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            {preferred.map((recipe) => (
-              <label key={recipe.id} className="flex gap-3 rounded-lg border p-3 text-sm hover:bg-neutral-50">
-                <input type="checkbox" name="recipe_id" value={recipe.id} className="mt-1" />
-                <span>
-                  <span className="block font-medium">{recipe.code} · {recipe.name}</span>
-                  <span className="text-neutral-500">{recipe.category} · {recipe.status}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {preferred.length === 0 && <p className="text-sm text-neutral-500">Sem receitas disponíveis.</p>}
-          <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">
-            Gerar lista de compras
-          </button>
-        </form>
+        <RecipePickerForm recipes={preferred} action={generateShoppingListFromRecipes} />
       </Card>
       <Card title="Como funciona">
         <p className="text-sm text-neutral-600">

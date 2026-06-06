@@ -15,7 +15,15 @@ type ShoppingItem = {
   inventory_entry_id: string | null;
 };
 
-const allowedUnits = new Set(["g", "kg", "ml", "l", "L", "un", "uni", "unid", "embalagem", "embalagens", "lata", "latas"]);
+const unitAliases = new Map([
+  ["l", "L"],
+  ["uni", "un"],
+  ["unid", "un"],
+  ["embalagem", "un"],
+  ["embalagens", "un"],
+  ["lata", "un"],
+  ["latas", "un"]
+]);
 
 function text(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
@@ -29,12 +37,11 @@ function numberValue(value: FormDataEntryValue | null) {
 
 function normalizeUnit(value: string) {
   const unit = value.trim();
-  if (unit === "l") return "L";
-  if (unit === "uni" || unit === "unid") return "un";
-  if (unit === "embalagens") return "un";
-  if (unit === "embalagem") return "un";
-  if (unit === "lata" || unit === "latas") return "un";
-  return unit;
+  return unitAliases.get(unit.toLowerCase()) ?? unit;
+}
+
+function isSafeUnit(value: string) {
+  return value.length > 0 && value.length <= 24 && !/[<>{}\[\]\\;]/.test(value);
 }
 
 function addDays(days: number) {
@@ -80,7 +87,7 @@ export async function markShoppingItemPurchased(formData: FormData) {
   const requestedUnit = text(formData.get("purchased_unit")) || shoppingItem.planned_unit || "un";
   const purchasedUnit = normalizeUnit(requestedUnit);
 
-  if (purchasedQuantity <= 0 || !purchasedUnit || (!allowedUnits.has(requestedUnit) && !allowedUnits.has(purchasedUnit))) {
+  if (purchasedQuantity <= 0 || !isSafeUnit(purchasedUnit)) {
     throw new Error("Quantidade ou unidade inválida para adicionar ao inventário.");
   }
 

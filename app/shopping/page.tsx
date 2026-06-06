@@ -23,9 +23,19 @@ type ShoppingItem = {
 };
 
 function defaultUnit(unit: string | null) {
-  const value = unit ?? "un";
-  if (["g", "kg", "ml", "L", "un"].includes(value)) return value;
-  return "un";
+  return unit?.trim() || "un";
+}
+
+function unitOptions(unit: string | null) {
+  const options = ["g", "kg", "ml", "L", "un"];
+  const value = defaultUnit(unit);
+  return options.includes(value) ? options : [value, ...options];
+}
+
+function statusLabel(status: string) {
+  if (status === "comprado") return "Comprado";
+  if (status === "nao_comprado") return "Não comprado";
+  return status;
 }
 
 async function loadLatestShoppingList(): Promise<{ list: ShoppingList | null; items: ShoppingItem[] }> {
@@ -84,7 +94,7 @@ export default async function ShoppingPage() {
                   <td className="py-3 pr-4">{item.planned_quantity ?? "-"} {item.planned_unit ?? ""}</td>
                   <td className="py-3 pr-4">{item.category ?? "-"}</td>
                   <td className="py-3 pr-4">
-                    {item.purchased_status}
+                    {statusLabel(item.purchased_status)}
                     {item.purchased_status === "comprado" && item.purchased_quantity !== null && (
                       <span className="block text-xs text-neutral-500">Comprado: {item.purchased_quantity}</span>
                     )}
@@ -117,11 +127,9 @@ export default async function ShoppingPage() {
                           defaultValue={defaultUnit(item.planned_unit)}
                           aria-label="Unidade comprada"
                         >
-                          <option value="g">g</option>
-                          <option value="kg">kg</option>
-                          <option value="ml">ml</option>
-                          <option value="L">L</option>
-                          <option value="un">un</option>
+                          {unitOptions(item.planned_unit).map((unit) => (
+                            <option key={unit} value={unit}>{unit}</option>
+                          ))}
                         </select>
                         <button className="rounded-lg bg-black px-3 py-2 text-xs font-medium text-white" type="submit">
                           Marcar comprado
