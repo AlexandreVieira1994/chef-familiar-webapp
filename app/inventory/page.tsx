@@ -216,7 +216,7 @@ export default async function InventoryPage() {
                   </span>
                 </summary>
 
-                <div className="grid gap-3 border-t bg-neutral-50 p-3 lg:grid-cols-2">
+                <div className="hidden gap-3 border-t bg-neutral-50 p-3 group-open:grid lg:grid-cols-2">
                   {group.entries.map((entry, index) => {
                     const entryStatus = getAutomaticInventoryStatus(entry);
 
