@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/card";
+import { stableImageUrl } from "@/lib/image-url";
 import { recipeStatusLabel } from "@/lib/recipe-status";
 import { getSupabase } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "../actions";
@@ -62,10 +63,11 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
   const history = Array.isArray(recipe.feedback_history) ? recipe.feedback_history : [];
   const totalTime = (recipe.prep_time_min ?? 0) + (recipe.cook_time_min ?? 0);
   const steps = preparationSteps(recipe.notes);
+  const recipeImageUrl = stableImageUrl(recipe.image_url, recipe.code, "recipe");
 
   return (
     <div className="space-y-6">
-      <Link href="/recipes" className="text-sm text-neutral-600 hover:text-neutral-900">â† Voltar Ã s receitas</Link>
+      <Link href="/recipes" className="text-sm text-neutral-600 hover:text-neutral-900">Ã¢â€ Â Voltar ÃƒÂ s receitas</Link>
       <div>
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
@@ -74,12 +76,12 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
             Fonte de referencia BLW
           </a>
         )}
-        <p className="mt-2 text-neutral-600">{recipe.category} Â· {recipeStatusLabel(recipe.status)} Â· {totalTime || "-"} min Â· custo {recipe.cost_level ?? "-"}</p>
+        <p className="mt-2 text-neutral-600">{recipe.category} Ã‚Â· {recipeStatusLabel(recipe.status)} Ã‚Â· {totalTime || "-"} min Ã‚Â· custo {recipe.cost_level ?? "-"}</p>
       </div>
 
-      {recipe.image_url && (
+      {recipeImageUrl && (
         <img
-          src={recipe.image_url}
+          src={recipeImageUrl}
           alt={recipe.name}
           className="h-72 w-full rounded-lg object-cover"
           loading="eager"
@@ -102,30 +104,33 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
           <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">Guardar</button>
         </form>
         <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Estado atual:</strong> {recipeStatusLabel(recipe.status)}</p>
-        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Ãšltima nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
+        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>ÃƒÅ¡ltima nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
       </Card>
 
-      <Card title="HistÃ³rico de feedback">
+      <Card title="HistÃƒÂ³rico de feedback">
         <div className="space-y-2 text-sm">
           {history.map((item, index) => (
             <div key={`${item.created_at}-${index}`} className="rounded-lg border p-3">
-              <div className="font-medium">{recipeStatusLabel(item.status)} Â· {new Date(item.created_at).toLocaleString("pt-PT")}</div>
+              <div className="font-medium">{recipeStatusLabel(item.status)} Ã‚Â· {new Date(item.created_at).toLocaleString("pt-PT")}</div>
               <div className="text-neutral-600">{item.notes || "Sem nota."}</div>
             </div>
           ))}
-          {history.length === 0 && <p className="text-neutral-500">Sem histÃ³rico de feedback.</p>}
+          {history.length === 0 && <p className="text-neutral-500">Sem histÃƒÂ³rico de feedback.</p>}
         </div>
       </Card>
 
       <Card title="Ingredientes">
         <table className="w-full text-left text-sm">
           <tbody>
-            {ingredients.map((i) => (
+            {ingredients.map((i) => {
+              const imageUrl = stableImageUrl(i.image_url, i.ingredient_name, "ingredient");
+
+              return (
               <tr key={i.id} className="border-b align-middle">
                 <td className="py-2 pr-3">
-                  {i.image_url ? (
+                  {imageUrl ? (
                     <img
-                      src={i.image_url}
+                      src={imageUrl}
                       alt={i.ingredient_name}
                       className="h-12 w-16 rounded-lg object-cover"
                       loading="lazy"
@@ -138,7 +143,8 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
                 <td>{i.quantity ?? "-"} {i.unit ?? ""}</td>
                 <td>{i.blw_notes ?? "-"}</td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </Card>
@@ -153,8 +159,8 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         )}
       </Card>
 
-      <Card title="AdaptaÃ§Ã£o BLW"><p className="text-sm text-neutral-700">{recipe.blw_summary ?? "Sem notas BLW."}</p></Card>
-      <Card title="Momento de separaÃ§Ã£o"><p className="text-sm text-neutral-700">{recipe.separation_moment ?? "Separar porÃ§Ã£o da bebÃ© antes de sal/temperos fortes."}</p></Card>
+      <Card title="AdaptaÃƒÂ§ÃƒÂ£o BLW"><p className="text-sm text-neutral-700">{recipe.blw_summary ?? "Sem notas BLW."}</p></Card>
+      <Card title="Momento de separaÃƒÂ§ÃƒÂ£o"><p className="text-sm text-neutral-700">{recipe.separation_moment ?? "Separar porÃƒÂ§ÃƒÂ£o da bebÃƒÂ© antes de sal/temperos fortes."}</p></Card>
       <Card title="Notas da receita"><p className="text-sm text-neutral-700">{recipe.notes ?? "Sem notas."}</p></Card>
     </div>
   );
