@@ -18,6 +18,8 @@ create table if not exists recipes (
 alter table recipes add column if not exists feedback_notes text;
 alter table recipes add column if not exists last_feedback_at timestamptz;
 alter table recipes add column if not exists feedback_history jsonb not null default '[]'::jsonb;
+alter table recipes add column if not exists image_url text;
+alter table recipes add column if not exists source_url text;
 
 create table if not exists recipe_ingredients (
   id uuid primary key default gen_random_uuid(),
@@ -30,6 +32,8 @@ create table if not exists recipe_ingredients (
   blw_notes text,
   created_at timestamptz not null default now()
 );
+
+alter table recipe_ingredients add column if not exists image_url text;
 
 create table if not exists inventory_entries (
   id uuid primary key default gen_random_uuid(),
