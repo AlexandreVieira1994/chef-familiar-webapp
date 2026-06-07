@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/card";
+import { stableImageUrl } from "@/lib/image-url";
 import { recipeStatusLabel } from "@/lib/recipe-status";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { updateRecipeStatusForm } from "./actions";
@@ -35,11 +36,11 @@ export default async function RecipesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Receitas</h1>
-        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares com adaptaÃ§Ã£o BLW.</p>
+        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares com adaptaÃƒÂ§ÃƒÂ£o BLW.</p>
       </div>
       {!isSupabaseConfigured() && (
-        <Card title="Supabase ainda nÃ£o configurada">
-          <p className="text-sm text-neutral-600">Adiciona as variÃ¡veis da Supabase na Vercel para carregar dados reais.</p>
+        <Card title="Supabase ainda nÃƒÂ£o configurada">
+          <p className="text-sm text-neutral-600">Adiciona as variÃƒÂ¡veis da Supabase na Vercel para carregar dados reais.</p>
         </Card>
       )}
       <Card title="Receitas">
@@ -53,17 +54,20 @@ export default async function RecipesPage() {
                 <th className="py-2 pr-4">Tipo</th>
                 <th className="py-2 pr-4">Custo</th>
                 <th className="py-2 pr-4">Estado atual</th>
-                <th className="py-2 pr-4">Ãšltima nota</th>
-                <th className="py-2 pr-4">AvaliaÃ§Ã£o rÃ¡pida</th>
+                <th className="py-2 pr-4">ÃƒÅ¡ltima nota</th>
+                <th className="py-2 pr-4">AvaliaÃƒÂ§ÃƒÂ£o rÃƒÂ¡pida</th>
               </tr>
             </thead>
             <tbody>
-              {recipes.map((recipe) => (
+              {recipes.map((recipe) => {
+                const imageUrl = stableImageUrl(recipe.image_url, recipe.code, "recipe");
+
+                return (
                 <tr key={recipe.id} className="border-b last:border-0 hover:bg-neutral-50 align-top">
                   <td className="py-3 pr-4">
-                    {recipe.image_url ? (
+                    {imageUrl ? (
                       <img
-                        src={recipe.image_url}
+                        src={imageUrl}
                         alt={recipe.name}
                         className="h-16 w-24 rounded-lg object-cover"
                         loading="lazy"
@@ -94,14 +98,15 @@ export default async function RecipesPage() {
                         <option value="a_melhorar">A melhorar</option>
                         <option value="rejeitada">Rejeitada</option>
                       </select>
-                      <input name="notes" className="rounded-lg border px-2 py-2 text-sm" placeholder="Notas rÃ¡pidas" />
+                      <input name="notes" className="rounded-lg border px-2 py-2 text-sm" placeholder="Notas rÃƒÂ¡pidas" />
                       <button className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white" type="submit">
                         Guardar
                       </button>
                     </form>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
               {recipes.length === 0 && (
                 <tr><td className="py-4 text-neutral-500" colSpan={8}>Sem receitas carregadas.</td></tr>
               )}
