@@ -23,7 +23,6 @@ type Recipe = {
   feedback_notes: string | null;
   feedback_history: HistoryItem[] | null;
   image_url: string | null;
-  source_url: string | null;
 };
 type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; image_url: string | null };
 
@@ -40,7 +39,7 @@ async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: 
   if (!supabase) return null;
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, feedback_history, image_url, source_url")
+    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, feedback_history, image_url")
     .eq("code", code)
     .single();
   if (!recipe) return null;
@@ -69,11 +68,6 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
       <div>
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
-        {recipe.source_url && (
-          <a href={recipe.source_url} className="mt-2 inline-block text-sm text-neutral-600 underline-offset-2 hover:underline" target="_blank" rel="noreferrer">
-            Fonte de referencia
-          </a>
-        )}
         <p className="mt-2 text-neutral-600">{recipe.category} Ã‚Â· {recipeStatusLabel(recipe.status)} Ã‚Â· {totalTime || "-"} min Ã‚Â· custo {recipe.cost_level ?? "-"}</p>
       </div>
 
