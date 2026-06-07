@@ -23,8 +23,10 @@ type Recipe = {
   notes: string | null;
   feedback_notes: string | null;
   feedback_history: HistoryItem[] | null;
+  image_url: string | null;
+  source_url: string | null;
 };
-type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; blw_notes: string | null };
+type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; blw_notes: string | null; image_url: string | null };
 
 function preparationSteps(notes: string | null) {
   if (!notes) return [];
@@ -39,13 +41,13 @@ async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: 
   if (!supabase) return null;
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes, feedback_notes, feedback_history")
+    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes, feedback_notes, feedback_history, image_url, source_url")
     .eq("code", code)
     .single();
   if (!recipe) return null;
   const { data: ingredients } = await supabase
     .from("recipe_ingredients")
-    .select("id, ingredient_name, quantity, unit, category, blw_notes")
+    .select("id, ingredient_name, quantity, unit, category, blw_notes, image_url")
     .eq("recipe_id", recipe.id)
     .order("ingredient_name", { ascending: true });
   return { recipe, ingredients: ingredients ?? [] };
@@ -63,12 +65,26 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
 
   return (
     <div className="space-y-6">
-      <Link href="/recipes" className="text-sm text-neutral-600 hover:text-neutral-900">← Voltar às receitas</Link>
+      <Link href="/recipes" className="text-sm text-neutral-600 hover:text-neutral-900">â† Voltar Ã s receitas</Link>
       <div>
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
-        <p className="mt-2 text-neutral-600">{recipe.category} · {recipeStatusLabel(recipe.status)} · {totalTime || "-"} min · custo {recipe.cost_level ?? "-"}</p>
+        {recipe.source_url && (
+          <a href={recipe.source_url} className="mt-2 inline-block text-sm text-neutral-600 underline-offset-2 hover:underline" target="_blank" rel="noreferrer">
+            Fonte de referencia BLW
+          </a>
+        )}
+        <p className="mt-2 text-neutral-600">{recipe.category} Â· {recipeStatusLabel(recipe.status)} Â· {totalTime || "-"} min Â· custo {recipe.cost_level ?? "-"}</p>
       </div>
+
+      {recipe.image_url && (
+        <img
+          src={recipe.image_url}
+          alt={recipe.name}
+          className="h-72 w-full rounded-lg object-cover"
+          loading="eager"
+        />
+      )}
 
       <Card title="Avaliar receita">
         <form action={updateRecipeStatusForm} className="grid gap-3 md:grid-cols-4">
@@ -86,24 +102,44 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
           <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">Guardar</button>
         </form>
         <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Estado atual:</strong> {recipeStatusLabel(recipe.status)}</p>
-        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Última nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
+        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Ãšltima nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
       </Card>
 
-      <Card title="Histórico de feedback">
+      <Card title="HistÃ³rico de feedback">
         <div className="space-y-2 text-sm">
           {history.map((item, index) => (
             <div key={`${item.created_at}-${index}`} className="rounded-lg border p-3">
-              <div className="font-medium">{recipeStatusLabel(item.status)} · {new Date(item.created_at).toLocaleString("pt-PT")}</div>
+              <div className="font-medium">{recipeStatusLabel(item.status)} Â· {new Date(item.created_at).toLocaleString("pt-PT")}</div>
               <div className="text-neutral-600">{item.notes || "Sem nota."}</div>
             </div>
           ))}
-          {history.length === 0 && <p className="text-neutral-500">Sem histórico de feedback.</p>}
+          {history.length === 0 && <p className="text-neutral-500">Sem histÃ³rico de feedback.</p>}
         </div>
       </Card>
 
       <Card title="Ingredientes">
         <table className="w-full text-left text-sm">
-          <tbody>{ingredients.map((i) => <tr key={i.id} className="border-b"><td className="py-2 font-medium">{i.ingredient_name}</td><td>{i.quantity ?? "-"} {i.unit ?? ""}</td><td>{i.blw_notes ?? "-"}</td></tr>)}</tbody>
+          <tbody>
+            {ingredients.map((i) => (
+              <tr key={i.id} className="border-b align-middle">
+                <td className="py-2 pr-3">
+                  {i.image_url ? (
+                    <img
+                      src={i.image_url}
+                      alt={i.ingredient_name}
+                      className="h-12 w-16 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-12 w-16 rounded-lg bg-neutral-100" aria-hidden="true" />
+                  )}
+                </td>
+                <td className="py-2 font-medium">{i.ingredient_name}</td>
+                <td>{i.quantity ?? "-"} {i.unit ?? ""}</td>
+                <td>{i.blw_notes ?? "-"}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </Card>
 
@@ -117,8 +153,8 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         )}
       </Card>
 
-      <Card title="Adaptação BLW"><p className="text-sm text-neutral-700">{recipe.blw_summary ?? "Sem notas BLW."}</p></Card>
-      <Card title="Momento de separação"><p className="text-sm text-neutral-700">{recipe.separation_moment ?? "Separar porção da bebé antes de sal/temperos fortes."}</p></Card>
+      <Card title="AdaptaÃ§Ã£o BLW"><p className="text-sm text-neutral-700">{recipe.blw_summary ?? "Sem notas BLW."}</p></Card>
+      <Card title="Momento de separaÃ§Ã£o"><p className="text-sm text-neutral-700">{recipe.separation_moment ?? "Separar porÃ§Ã£o da bebÃ© antes de sal/temperos fortes."}</p></Card>
       <Card title="Notas da receita"><p className="text-sm text-neutral-700">{recipe.notes ?? "Sem notas."}</p></Card>
     </div>
   );
