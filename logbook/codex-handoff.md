@@ -359,3 +359,10 @@ Validacoes feitas antes de commit:
 - `POST /api/assistant` com `Comprei 1 kg batata e 6 ovos` gerou proposta com confirmacao obrigatoria;
 - `POST /api/assistant/confirm` com `decision = reject` cancelou a proposta de teste;
 - validacao local de build nao foi possivel porque `npm` nao esta disponivel nesta sessao; usar Vercel para validacao final.
+
+### Regra operacional permanente
+
+Pedido do utilizador:
+
+- depois de alteracoes neste projeto, fazer sempre commit e push para GitHub;
+- depois do deploy da Vercel ficar pronto, testar sempre a app em producao antes de considerar a tarefa concluida.

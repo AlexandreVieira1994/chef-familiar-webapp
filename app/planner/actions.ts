@@ -55,15 +55,12 @@ type GeneratedRecipe = {
   prep_time_min: number;
   cook_time_min: number;
   cost_level: string;
-  blw_summary: string;
-  separation_moment: string;
   notes: string;
   ingredients: Array<{
     ingredient_name: string;
     quantity: number | null;
     unit: string | null;
     category: string | null;
-    blw_notes: string | null;
   }>;
 };
 
@@ -198,7 +195,7 @@ async function generateAndStoreRecipes(style: string, count: number, startDate: 
           role: "system",
           content: [
             "Cria receitas familiares em portugues europeu e devolve apenas JSON.",
-            "Formato: objeto com a chave recipes, contendo objetos com name, category, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes, ingredients.",
+            "Formato: objeto com a chave recipes, contendo objetos com name, category, prep_time_min, cook_time_min, cost_level, notes, ingredients.",
             "Em notes escreve passos numerados curtos e suficientes para cozinhar a receita.",
             `Regras obrigatorias:\n${familyRulesText(rules)}`,
             `Estilo pretendido: ${recipeStyleLabel(style)}.`,
@@ -228,15 +225,12 @@ async function generateAndStoreRecipes(style: string, count: number, startDate: 
       prep_time_min: 10,
       cook_time_min: 20,
       cost_level: "baixo",
-      blw_summary: "Texturas macias, sem sal e com os ingredientes cortados de forma adequada.",
-      separation_moment: "Separar a porcao da bebe antes de salgar ou juntar temperos fortes.",
-      notes: `1. Preparar ${expiring[0].ingredient_name} e legumes disponiveis.\n2. Cozinhar ate ficar tudo macio.\n3. Separar a porcao BLW sem sal.\n4. Ajustar temperos dos adultos no fim.`,
+      notes: `1. Preparar ${expiring[0].ingredient_name} e legumes disponiveis.\n2. Cozinhar ate ficar no ponto.\n3. Ajustar temperos no fim.`,
       ingredients: expiring.slice(0, 3).map((item) => ({
         ingredient_name: item.ingredient_name,
         quantity: 1,
         unit: item.unit,
-        category: null,
-        blw_notes: "Cozinhar ate ficar macio."
+        category: null
       }))
     });
   }
@@ -255,8 +249,6 @@ async function generateAndStoreRecipes(style: string, count: number, startDate: 
         prep_time_min: recipe.prep_time_min,
         cook_time_min: recipe.cook_time_min,
         cost_level: recipe.cost_level,
-        blw_summary: recipe.blw_summary,
-        separation_moment: recipe.separation_moment,
         notes: recipe.notes
       })
       .select("id, code, name, status, category, cost_level, prep_time_min, cook_time_min, notes")
@@ -269,8 +261,7 @@ async function generateAndStoreRecipes(style: string, count: number, startDate: 
       ingredient_name: item.ingredient_name,
       quantity: item.quantity,
       unit: item.unit,
-      category: item.category,
-      blw_notes: item.blw_notes
+      category: item.category
     }));
 
     if (ingredients.length > 0) {

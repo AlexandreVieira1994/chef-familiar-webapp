@@ -94,7 +94,7 @@ export default async function DashboardPage() {
         <div className="rounded-lg border border-[#dce5dc] bg-white p-6 shadow-[0_18px_45px_rgba(33,48,38,0.07)] md:p-8">
           <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[#b85c38]">Planeamento familiar</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-tight tracking-normal text-[#17211b] md:text-5xl">
-            Cozinha semanal com inventário, regras BLW e compras no mesmo fluxo.
+            Cozinha semanal com inventário, regras familiares e compras no mesmo fluxo.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-[#647268]">
             Começa pelo que já tens em casa, escolhe receitas aprovadas e transforma o plano numa lista de compras

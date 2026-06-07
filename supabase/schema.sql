@@ -9,8 +9,6 @@ create table if not exists recipes (
   prep_time_min integer,
   cook_time_min integer,
   cost_level text,
-  blw_summary text,
-  separation_moment text,
   notes text,
   created_at timestamptz not null default now()
 );
@@ -29,7 +27,6 @@ create table if not exists recipe_ingredients (
   unit text,
   category text,
   optional boolean not null default false,
-  blw_notes text,
   created_at timestamptz not null default now()
 );
 

@@ -5,7 +5,7 @@ import { Navigation } from "@/components/navigation";
 
 export const metadata: Metadata = {
   title: "Chef Familiar",
-  description: "Planeamento alimentar familiar com BLW, inventário e lista de compras"
+  description: "Planeamento alimentar familiar com inventário e lista de compras"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

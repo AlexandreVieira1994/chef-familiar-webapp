@@ -36,7 +36,7 @@ export default async function RecipesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Receitas</h1>
-        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares com adaptaÃƒÂ§ÃƒÂ£o BLW.</p>
+        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares.</p>
       </div>
       {!isSupabaseConfigured() && (
         <Card title="Supabase ainda nÃƒÂ£o configurada">

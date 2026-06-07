@@ -1,6 +1,6 @@
 # Chef Familiar Web App
 
-Web app pessoal para planeamento alimentar familiar, receitas, inventario, lista de compras e BLW.
+Web app pessoal para planeamento alimentar familiar, receitas, inventario e lista de compras.
 
 ## Stack
 

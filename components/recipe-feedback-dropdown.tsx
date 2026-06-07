@@ -45,7 +45,7 @@ export function RecipeFeedbackDropdown({
             </label>
             <label className="block space-y-1 text-sm">
               <span className="font-medium">Notas</span>
-              <textarea name="notes" className="min-h-20 w-full rounded-lg border px-3 py-2" placeholder="Ex: bebé aceitou bem; reduzir tomate" />
+              <textarea name="notes" className="min-h-20 w-full rounded-lg border px-3 py-2" placeholder="Ex: reduzir tomate; repetir formato" />
             </label>
             <div className="flex items-center justify-between gap-3">
               <button

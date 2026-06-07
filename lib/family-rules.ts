@@ -1,11 +1,10 @@
 import { getSupabase } from "@/lib/supabase";
 
 export const defaultFamilyRules = [
-  { rule_key: "family", rule_value: "2 adultos e 1 bebe de 6 meses em BLW" },
+  { rule_key: "family", rule_value: "2 adultos" },
   { rule_key: "no_meat", rule_value: "Nao usar carne" },
   { rule_key: "fish_limit", rule_value: "Peixe no maximo 2 refeicoes por semana" },
   { rule_key: "dairy", rule_value: "Evitar leite e derivados tradicionais; preferir alternativas vegetais adequadas" },
-  { rule_key: "blw_salt_sugar", rule_value: "Nunca adicionar sal ou acucar a preparacao principal da bebe" },
   { rule_key: "preferences", rule_value: "Evitar cogumelos, cebola, curgete, beringela e tofu visiveis; usar triturado ou removivel" }
 ];
 
@@ -13,6 +12,8 @@ export type FamilyRule = {
   rule_key: string;
   rule_value: string;
 };
+
+const supportedRuleKeys = new Set(defaultFamilyRules.map((rule) => rule.rule_key));
 
 export async function loadFamilyRules(): Promise<FamilyRule[]> {
   const supabase = getSupabase();
@@ -24,7 +25,12 @@ export async function loadFamilyRules(): Promise<FamilyRule[]> {
     .order("rule_key", { ascending: true });
 
   if (error || !data || data.length === 0) return defaultFamilyRules;
-  return data;
+
+  const supportedRules = data.filter(
+    (rule) => supportedRuleKeys.has(rule.rule_key) || rule.rule_key.startsWith("custom_")
+  );
+
+  return supportedRules.length > 0 ? supportedRules : defaultFamilyRules;
 }
 
 export function familyRulesText(rules: FamilyRule[]) {

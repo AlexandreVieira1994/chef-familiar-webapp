@@ -14,7 +14,7 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold">Regras familiares</h1>
         <p className="mt-2 text-neutral-600">
-          Preferencias, restricoes alimentares, BLW e limites semanais usados pelo assistente e pelo planeador automatico.
+          Preferencias, restricoes alimentares e limites semanais usados pelo assistente e pelo planeador automatico.
         </p>
       </div>
 

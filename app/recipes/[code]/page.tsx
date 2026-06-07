@@ -19,15 +19,13 @@ type Recipe = {
   prep_time_min: number | null;
   cook_time_min: number | null;
   cost_level: string | null;
-  blw_summary: string | null;
-  separation_moment: string | null;
   notes: string | null;
   feedback_notes: string | null;
   feedback_history: HistoryItem[] | null;
   image_url: string | null;
   source_url: string | null;
 };
-type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; blw_notes: string | null; image_url: string | null };
+type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; image_url: string | null };
 
 function preparationSteps(notes: string | null) {
   if (!notes) return [];
@@ -42,13 +40,13 @@ async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: 
   if (!supabase) return null;
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, blw_summary, separation_moment, notes, feedback_notes, feedback_history, image_url, source_url")
+    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, feedback_history, image_url, source_url")
     .eq("code", code)
     .single();
   if (!recipe) return null;
   const { data: ingredients } = await supabase
     .from("recipe_ingredients")
-    .select("id, ingredient_name, quantity, unit, category, blw_notes, image_url")
+    .select("id, ingredient_name, quantity, unit, category, image_url")
     .eq("recipe_id", recipe.id)
     .order("ingredient_name", { ascending: true });
   return { recipe, ingredients: ingredients ?? [] };
@@ -73,7 +71,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
         {recipe.source_url && (
           <a href={recipe.source_url} className="mt-2 inline-block text-sm text-neutral-600 underline-offset-2 hover:underline" target="_blank" rel="noreferrer">
-            Fonte de referencia BLW
+            Fonte de referencia
           </a>
         )}
         <p className="mt-2 text-neutral-600">{recipe.category} Ã‚Â· {recipeStatusLabel(recipe.status)} Ã‚Â· {totalTime || "-"} min Ã‚Â· custo {recipe.cost_level ?? "-"}</p>
@@ -141,7 +139,7 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
                 </td>
                 <td className="py-2 font-medium">{i.ingredient_name}</td>
                 <td>{i.quantity ?? "-"} {i.unit ?? ""}</td>
-                <td>{i.blw_notes ?? "-"}</td>
+                <td>{i.category ?? "-"}</td>
               </tr>
             );
             })}
@@ -155,12 +153,10 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
             {steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}
           </ol>
         ) : (
-          <p className="text-sm text-neutral-700">Sem passos guardados. Usa os ingredientes e as notas BLW para preparar uma versao simples e macia.</p>
+          <p className="text-sm text-neutral-700">Sem passos guardados. Usa os ingredientes para preparar uma versao simples.</p>
         )}
       </Card>
 
-      <Card title="AdaptaÃƒÂ§ÃƒÂ£o BLW"><p className="text-sm text-neutral-700">{recipe.blw_summary ?? "Sem notas BLW."}</p></Card>
-      <Card title="Momento de separaÃƒÂ§ÃƒÂ£o"><p className="text-sm text-neutral-700">{recipe.separation_moment ?? "Separar porÃƒÂ§ÃƒÂ£o da bebÃƒÂ© antes de sal/temperos fortes."}</p></Card>
       <Card title="Notas da receita"><p className="text-sm text-neutral-700">{recipe.notes ?? "Sem notas."}</p></Card>
     </div>
   );
