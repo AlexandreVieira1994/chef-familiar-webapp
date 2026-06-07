@@ -15,6 +15,7 @@ type Recipe = {
   status: string;
   cost_level: string | null;
   feedback_notes: string | null;
+  image_url: string | null;
 };
 
 async function loadRecipes(): Promise<Recipe[]> {
@@ -22,7 +23,7 @@ async function loadRecipes(): Promise<Recipe[]> {
   if (!supabase) return [];
   const { data } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, cost_level, feedback_notes")
+    .select("id, code, name, category, status, cost_level, feedback_notes, image_url")
     .order("code");
   return data ?? [];
 }
@@ -34,11 +35,11 @@ export default async function RecipesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Receitas</h1>
-        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares com adaptação BLW.</p>
+        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares com adaptaÃ§Ã£o BLW.</p>
       </div>
       {!isSupabaseConfigured() && (
-        <Card title="Supabase ainda não configurada">
-          <p className="text-sm text-neutral-600">Adiciona as variáveis da Supabase na Vercel para carregar dados reais.</p>
+        <Card title="Supabase ainda nÃ£o configurada">
+          <p className="text-sm text-neutral-600">Adiciona as variÃ¡veis da Supabase na Vercel para carregar dados reais.</p>
         </Card>
       )}
       <Card title="Receitas">
@@ -46,18 +47,31 @@ export default async function RecipesPage() {
           <table className="w-full text-left text-sm">
             <thead className="border-b text-neutral-500">
               <tr>
+                <th className="py-2 pr-4">Imagem</th>
                 <th className="py-2 pr-4">ID</th>
                 <th className="py-2 pr-4">Receita</th>
                 <th className="py-2 pr-4">Tipo</th>
                 <th className="py-2 pr-4">Custo</th>
                 <th className="py-2 pr-4">Estado atual</th>
-                <th className="py-2 pr-4">Última nota</th>
-                <th className="py-2 pr-4">Avaliação rápida</th>
+                <th className="py-2 pr-4">Ãšltima nota</th>
+                <th className="py-2 pr-4">AvaliaÃ§Ã£o rÃ¡pida</th>
               </tr>
             </thead>
             <tbody>
               {recipes.map((recipe) => (
                 <tr key={recipe.id} className="border-b last:border-0 hover:bg-neutral-50 align-top">
+                  <td className="py-3 pr-4">
+                    {recipe.image_url ? (
+                      <img
+                        src={recipe.image_url}
+                        alt={recipe.name}
+                        className="h-16 w-24 rounded-lg object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-16 w-24 rounded-lg bg-neutral-100" aria-hidden="true" />
+                    )}
+                  </td>
                   <td className="py-3 pr-4 font-mono text-xs">
                     <Link href={`/recipes/${recipe.code}`} className="underline-offset-2 hover:underline">{recipe.code}</Link>
                   </td>
@@ -80,7 +94,7 @@ export default async function RecipesPage() {
                         <option value="a_melhorar">A melhorar</option>
                         <option value="rejeitada">Rejeitada</option>
                       </select>
-                      <input name="notes" className="rounded-lg border px-2 py-2 text-sm" placeholder="Notas rápidas" />
+                      <input name="notes" className="rounded-lg border px-2 py-2 text-sm" placeholder="Notas rÃ¡pidas" />
                       <button className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white" type="submit">
                         Guardar
                       </button>
@@ -89,7 +103,7 @@ export default async function RecipesPage() {
                 </tr>
               ))}
               {recipes.length === 0 && (
-                <tr><td className="py-4 text-neutral-500" colSpan={7}>Sem receitas carregadas.</td></tr>
+                <tr><td className="py-4 text-neutral-500" colSpan={8}>Sem receitas carregadas.</td></tr>
               )}
             </tbody>
           </table>
