@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { familyRulesText, loadFamilyRules } from "@/lib/family-rules";
-import { getAssistantModel, getOpenAIClient } from "@/lib/ai/openai";
 import { isInventoryEntryUsable } from "@/lib/inventory-status";
 import { getSupabase } from "@/lib/supabase";
 
@@ -38,6 +37,7 @@ type RecipeForPlan = {
   name?: string;
   status: string;
   category: string;
+  source_url?: string | null;
   cost_level?: string | null;
   prep_time_min?: number | null;
   cook_time_min?: number | null;
@@ -47,21 +47,6 @@ type RecipeForPlan = {
 type RecipeIngredientForPlan = {
   recipe_id: string;
   ingredient_name: string;
-};
-
-type GeneratedRecipe = {
-  name: string;
-  category: string;
-  prep_time_min: number;
-  cook_time_min: number;
-  cost_level: string;
-  notes: string;
-  ingredients: Array<{
-    ingredient_name: string;
-    quantity: number | null;
-    unit: string | null;
-    category: string | null;
-  }>;
 };
 
 const mealSlots = ["pequeno_almoco", "almoco", "lanche", "jantar"];
@@ -141,137 +126,6 @@ function fishLimitFromRules(rulesText: string) {
   const fishRule = rulesText.match(/peixe[^\d]*(\d+)/i);
   const parsed = fishRule ? Number(fishRule[1]) : 2;
   return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 2;
-}
-
-function safeJsonArray(value: string): GeneratedRecipe[] {
-  const trimmed = value.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return Array.isArray(parsed) ? parsed as GeneratedRecipe[] : [];
-  } catch {
-    return [];
-  }
-}
-
-async function nextRecipeCode() {
-  const supabase = getSupabase();
-  if (!supabase) return "AI001";
-
-  const { data } = await supabase
-    .from("recipes")
-    .select("code")
-    .like("code", "AI%")
-    .order("code", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const current = typeof data?.code === "string" ? Number(data.code.replace(/\D/g, "")) : 0;
-  return `AI${String((Number.isFinite(current) ? current : 0) + 1).padStart(3, "0")}`;
-}
-
-async function generateAndStoreRecipes(style: string, count: number, startDate: string) {
-  const supabase = getSupabase();
-  if (!supabase || count <= 0) return [] as RecipeForPlan[];
-
-  const rules = await loadFamilyRules();
-  const { data: inventory } = await supabase
-    .from("inventory_entries")
-    .select("ingredient_name, quantity_remaining, unit, expiry_date, status")
-    .order("expiry_date", { ascending: true });
-
-  const expiring = ((inventory ?? []) as InventoryEntry[])
-    .filter(isInventoryEntryUsable)
-    .filter((entry) => isSoonExpiring(entry.expiry_date, startDate))
-    .slice(0, 8);
-
-  const client = getOpenAIClient();
-  const generated: GeneratedRecipe[] = [];
-
-  if (client) {
-    const completion = await client.chat.completions.create({
-      model: getAssistantModel(),
-      messages: [
-        {
-          role: "system",
-          content: [
-            "Cria receitas familiares em portugues europeu e devolve apenas JSON.",
-            "Formato: objeto com a chave recipes, contendo objetos com name, category, prep_time_min, cook_time_min, cost_level, notes, ingredients.",
-            "Em notes escreve passos numerados curtos e suficientes para cozinhar a receita.",
-            `Regras obrigatorias:\n${familyRulesText(rules)}`,
-            `Estilo pretendido: ${recipeStyleLabel(style)}.`,
-            `Ingredientes a priorizar quando fizer sentido: ${expiring.map((item) => item.ingredient_name).join(", ") || "nenhum"}`
-          ].join("\n")
-        },
-        { role: "user", content: `Gera ${count} receita(s) novas para inserir na base de dados.` }
-      ],
-      response_format: { type: "json_object" }
-    });
-
-    const content = completion.choices[0]?.message.content ?? "";
-    const parsed = safeJsonArray(content);
-    if (parsed.length > 0) generated.push(...parsed);
-    else {
-      try {
-        const objectParsed = JSON.parse(content) as { recipes?: GeneratedRecipe[] };
-        if (Array.isArray(objectParsed.recipes)) generated.push(...objectParsed.recipes);
-      } catch {}
-    }
-  }
-
-  if (generated.length === 0 && expiring.length > 0) {
-    generated.push({
-      name: `Prato simples de ${expiring[0].ingredient_name}`,
-      category: "Aproveitamento",
-      prep_time_min: 10,
-      cook_time_min: 20,
-      cost_level: "baixo",
-      notes: `1. Preparar ${expiring[0].ingredient_name} e legumes disponiveis.\n2. Cozinhar ate ficar no ponto.\n3. Ajustar temperos no fim.`,
-      ingredients: expiring.slice(0, 3).map((item) => ({
-        ingredient_name: item.ingredient_name,
-        quantity: 1,
-        unit: item.unit,
-        category: null
-      }))
-    });
-  }
-
-  const inserted: RecipeForPlan[] = [];
-
-  for (const recipe of generated.slice(0, count)) {
-    const code = await nextRecipeCode();
-    const { data: insertedRecipe, error } = await supabase
-      .from("recipes")
-      .insert({
-        code,
-        name: recipe.name,
-        category: recipe.category,
-        status: "por_testar",
-        prep_time_min: recipe.prep_time_min,
-        cook_time_min: recipe.cook_time_min,
-        cost_level: recipe.cost_level,
-        notes: recipe.notes
-      })
-      .select("id, code, name, status, category, cost_level, prep_time_min, cook_time_min, notes")
-      .single();
-
-    if (error || !insertedRecipe) continue;
-
-    const ingredients = (recipe.ingredients ?? []).filter((item) => item.ingredient_name).map((item) => ({
-      recipe_id: insertedRecipe.id,
-      ingredient_name: item.ingredient_name,
-      quantity: item.quantity,
-      unit: item.unit,
-      category: item.category
-    }));
-
-    if (ingredients.length > 0) {
-      await supabase.from("recipe_ingredients").insert(ingredients);
-    }
-
-    inserted.push(insertedRecipe as RecipeForPlan);
-  }
-
-  return inserted;
 }
 
 async function createShoppingListFromRecipeIds(recipeIds: string[], startDate?: string, endDate?: string) {
@@ -453,20 +307,18 @@ export async function generateMealPlan(formData: FormData) {
 
   const { data: recipes, error: recipesError } = await supabase
     .from("recipes")
-    .select("id, code, name, status, category, cost_level, prep_time_min, cook_time_min, notes")
+    .select("id, code, name, status, category, source_url, cost_level, prep_time_min, cook_time_min, notes")
     .neq("status", "rejeitada")
+    .not("source_url", "is", null)
     .order("status", { ascending: true })
     .order("code", { ascending: true });
 
   if (recipesError) throw new Error(recipesError.message);
 
-  const neededMeals = days * slots.length;
-  const generatedRecipes = neededMeals > (recipes?.length ?? 0)
-    ? await generateAndStoreRecipes(recipeStyle, Math.min(4, neededMeals - (recipes?.length ?? 0)), startDate)
-    : [];
-
-  const allRecipes = [...((recipes ?? []) as RecipeForPlan[]), ...generatedRecipes];
-  if (allRecipes.length === 0) throw new Error("Nao ha receitas disponiveis para gerar plano.");
+  const allRecipes = (recipes ?? []) as RecipeForPlan[];
+  if (allRecipes.length === 0) {
+    throw new Error("Nao ha receitas disponiveis com fonte externa. Importa receitas de marcas, supermercados ou livros antes de gerar plano.");
+  }
 
   const [ingredientsResult, recentPlanResult, inventoryResult] = await Promise.all([
     supabase

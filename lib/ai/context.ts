@@ -17,7 +17,7 @@ export async function loadAssistantContext() {
     supabase.from("family_rules").select("rule_key, rule_value").order("rule_key"),
     supabase
       .from("recipes")
-      .select("id, code, name, category, status, feedback_notes, notes")
+      .select("id, code, name, category, status, feedback_notes, notes, source_url")
       .order("code"),
     supabase
       .from("inventory_entries")

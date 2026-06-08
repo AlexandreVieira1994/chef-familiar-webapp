@@ -36,11 +36,11 @@ export default async function RecipesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Receitas</h1>
-        <p className="mt-2 text-neutral-600">Base inicial de receitas familiares.</p>
+        <p className="mt-2 text-neutral-600">Receitas importadas de fontes externas verificaveis.</p>
       </div>
       {!isSupabaseConfigured() && (
-        <Card title="Supabase ainda nÃƒÂ£o configurada">
-          <p className="text-sm text-neutral-600">Adiciona as variÃƒÂ¡veis da Supabase na Vercel para carregar dados reais.</p>
+        <Card title="Supabase ainda nÃƒÆ’Ã‚Â£o configurada">
+          <p className="text-sm text-neutral-600">Adiciona as variÃƒÆ’Ã‚Â¡veis da Supabase na Vercel para carregar dados reais.</p>
         </Card>
       )}
       <Card title="Receitas">
@@ -54,8 +54,8 @@ export default async function RecipesPage() {
                 <th className="py-2 pr-4">Tipo</th>
                 <th className="py-2 pr-4">Custo</th>
                 <th className="py-2 pr-4">Estado atual</th>
-                <th className="py-2 pr-4">ÃƒÅ¡ltima nota</th>
-                <th className="py-2 pr-4">AvaliaÃƒÂ§ÃƒÂ£o rÃƒÂ¡pida</th>
+                <th className="py-2 pr-4">ÃƒÆ’Ã…Â¡ltima nota</th>
+                <th className="py-2 pr-4">AvaliaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o rÃƒÆ’Ã‚Â¡pida</th>
               </tr>
             </thead>
             <tbody>
@@ -98,7 +98,7 @@ export default async function RecipesPage() {
                         <option value="a_melhorar">A melhorar</option>
                         <option value="rejeitada">Rejeitada</option>
                       </select>
-                      <input name="notes" className="rounded-lg border px-2 py-2 text-sm" placeholder="Notas rÃƒÂ¡pidas" />
+                      <input name="notes" className="rounded-lg border px-2 py-2 text-sm" placeholder="Notas rÃƒÆ’Ã‚Â¡pidas" />
                       <button className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white" type="submit">
                         Guardar
                       </button>
@@ -108,7 +108,11 @@ export default async function RecipesPage() {
               );
               })}
               {recipes.length === 0 && (
-                <tr><td className="py-4 text-neutral-500" colSpan={8}>Sem receitas carregadas.</td></tr>
+                <tr>
+                  <td className="py-4 text-neutral-500" colSpan={8}>
+                    Sem receitas carregadas. Importa apenas receitas de marcas, supermercados, editoras/livros ou sites oficiais, sempre com link de fonte.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

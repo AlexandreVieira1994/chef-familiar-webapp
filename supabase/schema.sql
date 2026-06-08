@@ -18,6 +18,9 @@ alter table recipes add column if not exists last_feedback_at timestamptz;
 alter table recipes add column if not exists feedback_history jsonb not null default '[]'::jsonb;
 alter table recipes add column if not exists image_url text;
 alter table recipes add column if not exists source_url text;
+alter table recipes alter column source_url set not null;
+alter table recipes drop constraint if exists recipes_source_url_required;
+alter table recipes add constraint recipes_source_url_required check (source_url ~* '^https?://');
 
 create table if not exists recipe_ingredients (
   id uuid primary key default gen_random_uuid(),

@@ -13,6 +13,7 @@ type RecipeForAssistantPlan = {
   category: string;
   status: string;
   notes?: string | null;
+  source_url?: string | null;
 };
 
 type AssistantChatMessage = {
@@ -96,7 +97,7 @@ function fishLimitFromContext(context: AssistantContext) {
 }
 
 function isPlanRequest(message: string) {
-  return /plano|planeia|planeamento|ementa|refei[cç][oõ]es/i.test(message);
+  return /plano|planeia|planeamento|ementa|refei[cÃ§][oÃµ]es/i.test(message);
 }
 
 function isPlanActionRequest(message: string) {
@@ -104,14 +105,14 @@ function isPlanActionRequest(message: string) {
 }
 
 function isPlanChangeRequest(message: string, history: AssistantChatMessage[]) {
-  const asksForChange = /altera|alterar|muda|mudar|troca|trocar|ajusta|ajustar|refaz|refazer|substitui|substituir|poe|põe|por|coloca|colocar|guarda|guardar|grava|gravar|regista|registrar|propoe|propõe|avanca|avança|sim/i.test(message);
+  const asksForChange = /altera|alterar|muda|mudar|troca|trocar|ajusta|ajustar|refaz|refazer|substitui|substituir|poe|pÃµe|por|coloca|colocar|guarda|guardar|grava|gravar|regista|registrar|propoe|propÃµe|avanca|avanÃ§a|sim/i.test(message);
   if (!asksForChange) return false;
   return history.some((item) => isPlanRequest(item.content) || /create_meal_plan|Proponho um plano|cozinha apenas/i.test(item.content));
 }
 
 function isInventoryActionRequest(message: string) {
   return /comprei|trouxe|adicionei|adicionar|regista|registrar|guarda|guardar/i.test(message)
-    && !/plano|planeador|planejador|ementa|refei[cç][oõ]es/i.test(message);
+    && !/plano|planeador|planejador|ementa|refei[cÃ§][oÃµ]es/i.test(message);
 }
 
 function isMarkShoppingPurchasedRequest(message: string) {
@@ -152,8 +153,8 @@ function requestedDays(message: string) {
 
 function selectedMealSlots(message: string) {
   const slots: string[] = [];
-  if (/pequeno[- ]?almo[cç]o/i.test(message)) slots.push("pequeno_almoco");
-  if (/almo[cç]o/i.test(message)) slots.push("almoco");
+  if (/pequeno[- ]?almo[cÃ§]o/i.test(message)) slots.push("pequeno_almoco");
+  if (/almo[cÃ§]o/i.test(message)) slots.push("almoco");
   if (/lanche/i.test(message)) slots.push("lanche");
   if (/jantar/i.test(message)) slots.push("jantar");
   return slots.length > 0 ? Array.from(new Set(slots)) : ["jantar"];
@@ -167,6 +168,7 @@ function asRecipeForPlan(value: unknown): RecipeForAssistantPlan | null {
   const name = asString(record.name);
   const category = asString(record.category);
   const status = asString(record.status);
+  const sourceUrl = asString(record.source_url);
   if (!id || !code || !name || !category) return null;
   return {
     id,
@@ -174,8 +176,14 @@ function asRecipeForPlan(value: unknown): RecipeForAssistantPlan | null {
     name,
     category,
     status,
-    notes: typeof record.notes === "string" ? record.notes : null
+    notes: typeof record.notes === "string" ? record.notes : null,
+    source_url: sourceUrl || null
   };
+}
+
+function isRecipeCreationRequest(message: string) {
+  return /receita|prato|ementa/i.test(message)
+    && /cria|criar|gera|gerar|inventa|inventar|faz uma receita|sugere uma receita|nova receita/i.test(message);
 }
 
 function parseInventoryItems(value: unknown): AssistantInventoryItem[] {
@@ -222,7 +230,7 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
   if (!isPlanActionRequest(message) && !isChangeRequest) return null;
   const planningContext = isChangeRequest ? `${history.map((item) => item.content).join("\n")}\n${message}` : message;
 
-  if (/pr[oó]xima semana|semana que vem/i.test(planningContext) && /amanh[aã]/i.test(planningContext)) {
+  if (/pr[oÃ³]xima semana|semana que vem/i.test(planningContext) && /amanh[aÃ£]/i.test(planningContext)) {
     return {
       message: "Consigo fazer esse plano, mas preciso de confirmar uma coisa: queres que o plano comece amanha por causa da pizza, ou que comece na proxima segunda-feira e a pizza fique fora do plano semanal?",
       requiresConfirmation: false,
@@ -234,27 +242,28 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
   const recipes = context.recipes
     .map(asRecipeForPlan)
     .filter((recipe): recipe is RecipeForAssistantPlan => Boolean(recipe))
+    .filter((recipe) => Boolean(recipe.source_url))
     .filter((recipe) => recipe.status !== "rejeitada")
     .sort((a, b) => statusRank(a.status) - statusRank(b.status) || a.code.localeCompare(b.code));
 
   if (recipes.length === 0) {
     return {
-      message: "Não encontrei receitas disponíveis para criar um plano.",
+      message: "NÃ£o encontrei receitas disponÃ­veis para criar um plano.",
       requiresConfirmation: false,
       logId: null,
-      proposal: { kind: "answer", summary: "Sem receitas disponíveis." }
+      proposal: { kind: "answer", summary: "Sem receitas disponÃ­veis." }
     };
   }
 
   const days = requestedDays(planningContext);
-  const startDate = /pr[oó]xima semana|semana que vem/i.test(planningContext)
+  const startDate = /pr[oÃ³]xima semana|semana que vem/i.test(planningContext)
     ? nextMonday(today())
     : /domingo/i.test(planningContext)
       ? nextWeekday(today(), 0)
       : today();
   const endDate = addDays(startDate, days - 1);
   const slots = selectedMealSlots(planningContext);
-  const replaceExisting = !/sem substituir|n[aã]o substitu/i.test(planningContext);
+  const replaceExisting = !/sem substituir|n[aÃ£]o substitu/i.test(planningContext);
   const weeklyFishLimit = fishLimitFromContext(context);
   const cookingOnlySundayWednesday = /domingo/i.test(planningContext) && /quarta/i.test(planningContext);
   const firstCookDay = startDate;
@@ -299,7 +308,7 @@ function createBatchMealPlanProposal(message: string, context: AssistantContext,
 
   const summary = cookingOnlySundayWednesday
     ? `Proponho um plano de ${days} dias, com cozinha apenas no domingo (${firstCookDay}) e na quarta (${secondCookDay}), respeitando o limite de peixe.`
-    : `Proponho um plano de ${days} dias com ${entries.length} refeição(ões).`;
+    : `Proponho um plano de ${days} dias com ${entries.length} refeiÃ§Ã£o(Ãµes).`;
 
   return {
     message: summary,
@@ -326,10 +335,10 @@ function fallbackShoppingAnswer(context: Awaited<ReturnType<typeof loadAssistant
 
   if (pending.length === 0) {
     return {
-      message: "Não encontrei itens pendentes na lista de compras ativa.",
+      message: "NÃ£o encontrei itens pendentes na lista de compras ativa.",
       requiresConfirmation: false,
       logId: null,
-      proposal: { kind: "answer", summary: "Não há itens pendentes na lista ativa." }
+      proposal: { kind: "answer", summary: "NÃ£o hÃ¡ itens pendentes na lista ativa." }
     };
   }
 
@@ -353,7 +362,7 @@ const tools = [
     type: "function" as const,
     function: {
       name: "propose_inventory_entries",
-      description: "Propõe adicionar ingredientes comprados ao inventário. Não executa a alteração.",
+      description: "PropÃµe adicionar ingredientes comprados ao inventÃ¡rio. NÃ£o executa a alteraÃ§Ã£o.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -385,7 +394,7 @@ const tools = [
     type: "function" as const,
     function: {
       name: "propose_mark_shopping_item_purchased",
-      description: "Propõe marcar um item existente da lista de compras como comprado. Não executa a alteração.",
+      description: "PropÃµe marcar um item existente da lista de compras como comprado. NÃ£o executa a alteraÃ§Ã£o.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -406,6 +415,9 @@ function buildSystemPrompt(context: Awaited<ReturnType<typeof loadAssistantConte
     "Es o assistente geral do Chef Familiar. Funcionas como chat da app inteira, nao como assistente de uma unica pagina.",
     "Responde em portugues europeu, de forma curta, pratica e orientada para a tarefa do utilizador.",
     "Ajuda com receitas, inventario, compras, planeador, regras da familia, aproveitamento de sobras e navegacao conceptual da app.",
+    "Proibido criar, inventar ou escrever receitas novas. Receitas so podem vir de fontes externas verificaveis: marcas, supermercados, editoras/livros, publicacoes institucionais ou sites oficiais.",
+    "Nao uses receitas de comunidades, comentarios, foruns, redes sociais ou conteudo gerado por utilizadores.",
+    "Quando falares de uma receita, exige ou aponta para uma fonte_url existente/clicavel; se nao houver fonte, diz que a receita deve ser importada de uma fonte externa antes de ser usada.",
     "As familyRules do contexto sao regras obrigatorias para sugerir planos, receitas, ingredientes, compras e adaptacoes.",
     "Usa o historico da conversa para entender pedidos como alterar, refazer, trocar, confirmar ou continuar.",
     "So cries propostas executaveis quando o utilizador pedir uma acao clara. Se for pergunta, conselho, comparacao ou explicacao, responde em texto.",
@@ -435,10 +447,19 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
   const history = parseChatHistory(rawHistory);
   if (!context.configured) {
     return {
-      message: "A Supabase ainda não está configurada. Posso ajudar quando as variáveis estiverem definidas na Vercel.",
+      message: "A Supabase ainda nÃ£o estÃ¡ configurada. Posso ajudar quando as variÃ¡veis estiverem definidas na Vercel.",
       requiresConfirmation: false,
       logId: null,
-      proposal: { kind: "answer", summary: "Supabase não configurada." }
+      proposal: { kind: "answer", summary: "Supabase nÃ£o configurada." }
+    };
+  }
+
+  if (isRecipeCreationRequest(message)) {
+    return {
+      message: "Nao posso criar nem inventar receitas. Posso ajudar a organizar receitas ja importadas de marcas, supermercados, livros/editoras ou sites oficiais com link de fonte.",
+      requiresConfirmation: false,
+      logId: null,
+      proposal: { kind: "answer", summary: "Criacao de receitas bloqueada por falta de fonte externa." }
     };
   }
 
@@ -460,10 +481,10 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
   const client = getOpenAIClient();
   if (!client) {
     return {
-      message: "Falta configurar OPENAI_API_KEY na Vercel/localmente. A assinatura ChatGPT não substitui a chave da API.",
+      message: "Falta configurar OPENAI_API_KEY na Vercel/localmente. A assinatura ChatGPT nÃ£o substitui a chave da API.",
       requiresConfirmation: false,
       logId: null,
-      proposal: { kind: "answer", summary: "OpenAI API key não configurada." }
+      proposal: { kind: "answer", summary: "OpenAI API key nÃ£o configurada." }
     };
   }
 
@@ -482,7 +503,7 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
   const toolCall = choice?.message.tool_calls?.[0];
 
   if (!toolCall) {
-    const summary = choice?.message.content?.trim() || "Não encontrei uma ação segura para propor.";
+    const summary = choice?.message.content?.trim() || "NÃ£o encontrei uma aÃ§Ã£o segura para propor.";
     return {
       message: summary,
       requiresConfirmation: false,
@@ -498,16 +519,16 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
     const items = parseInventoryItems(args.items);
     if (items.length === 0) {
       return {
-        message: "Não consegui identificar ingredientes com quantidade suficiente para adicionar ao inventário.",
+        message: "NÃ£o consegui identificar ingredientes com quantidade suficiente para adicionar ao inventÃ¡rio.",
         requiresConfirmation: false,
         logId: null,
-        proposal: { kind: "answer", summary: "Sem ingredientes válidos." }
+        proposal: { kind: "answer", summary: "Sem ingredientes vÃ¡lidos." }
       };
     }
 
     proposal = {
       kind: "add_inventory_entries",
-      summary: asString(args.summary, `Adicionar ${items.length} item(ns) ao inventário.`),
+      summary: asString(args.summary, `Adicionar ${items.length} item(ns) ao inventÃ¡rio.`),
       items
     };
   } else if (toolCall.function.name === "propose_mark_shopping_item_purchased") {
@@ -520,10 +541,10 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
 
     if (!itemId || !knownItemIds.has(itemId)) {
       return {
-        message: "Não consegui associar esse pedido a um item real da lista de compras ativa.",
+        message: "NÃ£o consegui associar esse pedido a um item real da lista de compras ativa.",
         requiresConfirmation: false,
         logId: null,
-        proposal: { kind: "answer", summary: "Item da lista não identificado." }
+        proposal: { kind: "answer", summary: "Item da lista nÃ£o identificado." }
       };
     }
 
@@ -535,7 +556,7 @@ export async function createAssistantProposal(userMessage: string, rawHistory: u
       purchased_unit: args.purchased_unit === undefined ? undefined : asString(args.purchased_unit)
     };
   } else {
-    const summary = "Não encontrei uma ação suportada para esta versão.";
+    const summary = "NÃ£o encontrei uma aÃ§Ã£o suportada para esta versÃ£o.";
     return {
       message: summary,
       requiresConfirmation: false,

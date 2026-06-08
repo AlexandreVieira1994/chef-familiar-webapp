@@ -23,6 +23,7 @@ type Recipe = {
   feedback_notes: string | null;
   feedback_history: HistoryItem[] | null;
   image_url: string | null;
+  source_url: string | null;
 };
 type Ingredient = { id: string; ingredient_name: string; quantity: number | null; unit: string | null; category: string | null; image_url: string | null };
 
@@ -39,7 +40,7 @@ async function loadRecipe(code: string): Promise<{ recipe: Recipe; ingredients: 
   if (!supabase) return null;
   const { data: recipe } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, feedback_history, image_url")
+    .select("id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, feedback_history, image_url, source_url")
     .eq("code", code)
     .single();
   if (!recipe) return null;
@@ -64,11 +65,16 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
 
   return (
     <div className="space-y-6">
-      <Link href="/recipes" className="text-sm text-neutral-600 hover:text-neutral-900">Ã¢â€ Â Voltar ÃƒÂ s receitas</Link>
+      <Link href="/recipes" className="text-sm text-neutral-600 hover:text-neutral-900">ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Voltar ÃƒÆ’Ã‚Â s receitas</Link>
       <div>
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
-        <p className="mt-2 text-neutral-600">{recipe.category} Ã‚Â· {recipeStatusLabel(recipe.status)} Ã‚Â· {totalTime || "-"} min Ã‚Â· custo {recipe.cost_level ?? "-"}</p>
+        {recipe.source_url && (
+          <a href={recipe.source_url} className="mt-2 inline-block text-sm text-neutral-600 underline-offset-2 hover:underline" target="_blank" rel="noreferrer">
+            Fonte da receita
+          </a>
+        )}
+        <p className="mt-2 text-neutral-600">{recipe.category} Ãƒâ€šÃ‚Â· {recipeStatusLabel(recipe.status)} Ãƒâ€šÃ‚Â· {totalTime || "-"} min Ãƒâ€šÃ‚Â· custo {recipe.cost_level ?? "-"}</p>
       </div>
 
       {recipeImageUrl && (
@@ -96,18 +102,18 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
           <button className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white" type="submit">Guardar</button>
         </form>
         <p className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm"><strong>Estado atual:</strong> {recipeStatusLabel(recipe.status)}</p>
-        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>ÃƒÅ¡ltima nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
+        <p className="mt-2 rounded-lg bg-neutral-50 p-3 text-sm"><strong>ÃƒÆ’Ã…Â¡ltima nota:</strong> {recipe.feedback_notes || "Sem nota guardada."}</p>
       </Card>
 
-      <Card title="HistÃƒÂ³rico de feedback">
+      <Card title="HistÃƒÆ’Ã‚Â³rico de feedback">
         <div className="space-y-2 text-sm">
           {history.map((item, index) => (
             <div key={`${item.created_at}-${index}`} className="rounded-lg border p-3">
-              <div className="font-medium">{recipeStatusLabel(item.status)} Ã‚Â· {new Date(item.created_at).toLocaleString("pt-PT")}</div>
+              <div className="font-medium">{recipeStatusLabel(item.status)} Ãƒâ€šÃ‚Â· {new Date(item.created_at).toLocaleString("pt-PT")}</div>
               <div className="text-neutral-600">{item.notes || "Sem nota."}</div>
             </div>
           ))}
-          {history.length === 0 && <p className="text-neutral-500">Sem histÃƒÂ³rico de feedback.</p>}
+          {history.length === 0 && <p className="text-neutral-500">Sem histÃƒÆ’Ã‚Â³rico de feedback.</p>}
         </div>
       </Card>
 
