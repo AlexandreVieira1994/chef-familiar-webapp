@@ -17,6 +17,7 @@ type Recipe = {
   cost_level: string | null;
   feedback_notes: string | null;
   image_url: string | null;
+  source_url: string | null;
 };
 
 async function loadRecipes(): Promise<Recipe[]> {
@@ -24,7 +25,7 @@ async function loadRecipes(): Promise<Recipe[]> {
   if (!supabase) return [];
   const { data } = await supabase
     .from("recipes")
-    .select("id, code, name, category, status, cost_level, feedback_notes, image_url")
+    .select("id, code, name, category, status, cost_level, feedback_notes, image_url, source_url")
     .order("code");
   return data ?? [];
 }
@@ -52,6 +53,7 @@ export default async function RecipesPage() {
                 <th className="py-2 pr-4">ID</th>
                 <th className="py-2 pr-4">Receita</th>
                 <th className="py-2 pr-4">Tipo</th>
+                <th className="py-2 pr-4">Fonte</th>
                 <th className="py-2 pr-4">Custo</th>
                 <th className="py-2 pr-4">Estado atual</th>
                 <th className="py-2 pr-4">ÃƒÆ’Ã…Â¡ltima nota</th>
@@ -83,6 +85,18 @@ export default async function RecipesPage() {
                     <Link href={`/recipes/${recipe.code}`} className="underline-offset-2 hover:underline">{recipe.name}</Link>
                   </td>
                   <td className="py-3 pr-4">{recipe.category}</td>
+                  <td className="py-3 pr-4">
+                    {recipe.source_url ? (
+                      <a
+                        href={recipe.source_url}
+                        className="whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium underline-offset-2 hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Ver fonte
+                      </a>
+                    ) : "-"}
+                  </td>
                   <td className="py-3 pr-4">{recipe.cost_level ?? "-"}</td>
                   <td className="py-3 pr-4 font-medium">{recipeStatusLabel(recipe.status)}</td>
                   <td className="py-3 pr-4 max-w-64 text-neutral-600">{recipe.feedback_notes || "-"}</td>
@@ -109,7 +123,7 @@ export default async function RecipesPage() {
               })}
               {recipes.length === 0 && (
                 <tr>
-                  <td className="py-4 text-neutral-500" colSpan={8}>
+                  <td className="py-4 text-neutral-500" colSpan={9}>
                     Sem receitas carregadas. Importa apenas receitas de marcas, supermercados, editoras/livros ou sites oficiais, sempre com link de fonte.
                   </td>
                 </tr>

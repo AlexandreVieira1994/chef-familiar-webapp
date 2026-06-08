@@ -70,8 +70,13 @@ export default async function RecipeDetailPage({ params }: { params: Promise<{ c
         <p className="font-mono text-sm text-neutral-500">{recipe.code}</p>
         <h1 className="text-3xl font-bold">{recipe.name}</h1>
         {recipe.source_url && (
-          <a href={recipe.source_url} className="mt-2 inline-block text-sm text-neutral-600 underline-offset-2 hover:underline" target="_blank" rel="noreferrer">
-            Fonte da receita
+          <a
+            href={recipe.source_url}
+            className="mt-3 inline-flex rounded-lg border border-[#dce5dc] bg-white px-4 py-2 text-sm font-medium text-[#17211b] underline-offset-2 hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abrir fonte original da receita
           </a>
         )}
         <p className="mt-2 text-neutral-600">{recipe.category} Ãƒâ€šÃ‚Â· {recipeStatusLabel(recipe.status)} Ãƒâ€šÃ‚Â· {totalTime || "-"} min Ãƒâ€šÃ‚Â· custo {recipe.cost_level ?? "-"}</p>
