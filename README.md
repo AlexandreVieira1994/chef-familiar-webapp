@@ -48,6 +48,9 @@ npm run android
 npm run typecheck
 ```
 
+Todos os scripts de arranque usam `--tunnel` por omissao, para o iPhone nao
+depender da rede local.
+
 ## Estado atual
 
 - Estrutura Expo mobile criada.

@@ -23,6 +23,8 @@ Preenche `.env` com a URL e anon/publishable key do Supabase.
 npm run start
 ```
 
+O script arranca sempre com `--tunnel`.
+
 Depois abre o QR code no Expo Go.
 
 ## Verificacoes
