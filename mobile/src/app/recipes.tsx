@@ -5,12 +5,15 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppScreen,
+  ButtonRow,
   ChipSelector,
   FormField,
   FormModal,
   InfoState,
+  InsetGroup,
+  ListRow,
   LoadingState,
-  SectionCard,
+  SectionHeader,
   Tag,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -86,17 +89,19 @@ export default function RecipesScreen() {
       <View style={styles.header}>
         <ThemedText type="title">Receitas</ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.paragraph}>
-          Lista real de receitas com navegação para detalhe, edição e leitura de ingredientes.
+          Catálogo principal da app, com detalhe, edição e ligação às fontes originais.
         </ThemedText>
       </View>
 
-      <AppButton
-        label="Nova receita"
-        onPress={() => {
-          setForm(createEmptyForm());
-          setFormVisible(true);
-        }}
-      />
+      <ButtonRow>
+        <AppButton
+          label="Nova receita"
+          onPress={() => {
+            setForm(createEmptyForm());
+            setFormVisible(true);
+          }}
+        />
+      </ButtonRow>
 
       {recipes.loading ? <LoadingState label="A carregar receitas..." /> : null}
 
@@ -115,33 +120,21 @@ export default function RecipesScreen() {
         />
       ) : null}
 
-      {recipes.data?.map((recipe) => (
-        <Pressable key={recipe.id} style={({ pressed }) => [styles.cardPressable, pressed && styles.pressed]} onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
-          <SectionCard>
-            <View style={styles.recipeHeader}>
-              <View style={styles.recipeHeaderText}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {recipe.code}
-                </ThemedText>
-                <ThemedText type="subtitle" style={styles.recipeTitle}>
-                  {recipe.name}
-                </ThemedText>
-              </View>
-              <Tag>{recipe.status}</Tag>
-            </View>
-
-            <View style={styles.metaRow}>
-              <Tag>{recipe.category}</Tag>
-              {recipe.cost_level ? <Tag>{recipe.cost_level}</Tag> : null}
-              {recipe.source_url ? <Tag>fonte</Tag> : null}
-            </View>
-
-            <ThemedText themeColor="textSecondary" style={styles.paragraph}>
-              {recipe.notes?.slice(0, 160) || 'Sem notas ainda.'}
-            </ThemedText>
-          </SectionCard>
-        </Pressable>
-      ))}
+      {recipes.data?.length ? <SectionHeader>Lista</SectionHeader> : null}
+      <InsetGroup>
+        {recipes.data?.map((recipe) => (
+          <Pressable
+            key={recipe.id}
+            style={({ pressed }) => [pressed && styles.pressed]}
+            onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
+            <ListRow
+              title={recipe.name}
+              subtitle={`${recipe.code} · ${recipe.category}${recipe.cost_level ? ` · ${recipe.cost_level}` : ''}`}
+              accessory={<Tag>{recipe.status}</Tag>}
+            />
+          </Pressable>
+        ))}
+      </InsetGroup>
 
       <FormModal
         visible={formVisible}
@@ -173,25 +166,7 @@ const styles = StyleSheet.create({
   paragraph: {
     lineHeight: 21,
   },
-  cardPressable: {
-    borderRadius: Spacing.four,
-  },
-  recipeHeader: {
-    gap: Spacing.two,
-  },
-  recipeHeaderText: {
-    gap: 4,
-  },
-  recipeTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.7,
   },
 });

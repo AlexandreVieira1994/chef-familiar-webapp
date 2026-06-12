@@ -5,11 +5,13 @@ import { Alert, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppScreen,
+  ButtonRow,
   FormField,
   FormModal,
   InfoState,
   LoadingState,
   SectionCard,
+  SectionHeader,
   Tag,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -177,7 +179,9 @@ export default function InventoryScreen() {
         </ThemedText>
       </View>
 
-      <AppButton label="Nova entrada" onPress={openCreate} />
+      <ButtonRow>
+        <AppButton label="Nova entrada" onPress={openCreate} />
+      </ButtonRow>
 
       {inventory.loading ? <LoadingState label="A carregar inventário..." /> : null}
 
@@ -196,6 +200,7 @@ export default function InventoryScreen() {
         />
       ) : null}
 
+      {activeEntries.length ? <SectionHeader>Entradas</SectionHeader> : null}
       {activeEntries.map((entry) => (
         <SectionCard key={entry.id}>
           <View style={styles.rowHeader}>
@@ -223,10 +228,10 @@ export default function InventoryScreen() {
             </ThemedText>
           ) : null}
 
-          <View style={styles.actions}>
+          <ButtonRow>
             <AppButton label="Editar" tone="secondary" onPress={() => openEdit(entry)} />
             <AppButton label="Remover" tone="danger" onPress={() => handleSoftDelete(entry)} />
-          </View>
+          </ButtonRow>
         </SectionCard>
       ))}
 

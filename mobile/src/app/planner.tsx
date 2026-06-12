@@ -5,12 +5,16 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppScreen,
+  ButtonRow,
   ChipSelector,
   FormField,
   FormModal,
   InfoState,
+  InsetGroup,
+  ListRow,
   LoadingState,
   SectionCard,
+  SectionHeader,
   Tag,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -119,7 +123,9 @@ export default function PlannerScreen() {
         </ThemedText>
       </View>
 
-      <AppButton label="Nova refeição" onPress={openCreate} />
+      <ButtonRow>
+        <AppButton label="Nova refeição" onPress={openCreate} />
+      </ButtonRow>
 
       {planner.loading ? <LoadingState label="A carregar plano..." /> : null}
 
@@ -135,6 +141,7 @@ export default function PlannerScreen() {
         <InfoState title="Sem refeições planeadas" message="Ainda não existem entradas no plano semanal. Cria a primeira refeição para arrancar." />
       ) : null}
 
+      {planner.data?.entries.length ? <SectionHeader>Refeições planeadas</SectionHeader> : null}
       {planner.data?.entries.map((entry) => (
         <SectionCard key={entry.id}>
           <View style={styles.entryHeader}>
@@ -156,10 +163,10 @@ export default function PlannerScreen() {
             </ThemedText>
           ) : null}
 
-          <View style={styles.actions}>
+          <ButtonRow>
             <AppButton label="Editar" tone="secondary" onPress={() => openEdit(entry)} />
             <AppButton label="Apagar" tone="danger" onPress={() => handleDelete(entry)} />
-          </View>
+          </ButtonRow>
         </SectionCard>
       ))}
 
@@ -178,23 +185,21 @@ export default function PlannerScreen() {
           {recipes.length === 0 ? (
             <ThemedText themeColor="textSecondary">Não existem receitas disponíveis para planear.</ThemedText>
           ) : (
-            <View style={styles.recipePickerList}>
+            <InsetGroup>
               {recipes.map((recipe) => {
                 const selected = recipe.id === recipeId;
 
                 return (
-                  <Pressable
-                    key={recipe.id}
-                    onPress={() => setRecipeId(recipe.id)}
-                    style={({ pressed }) => [styles.recipeOption, selected && styles.recipeOptionSelected, pressed && styles.pressed]}>
-                    <ThemedText type="smallBold" style={selected ? styles.recipeOptionTextSelected : styles.recipeOptionText}>
-                      {recipe.code} · {recipe.name}
-                    </ThemedText>
-                    <ThemedText themeColor="textSecondary">{recipe.category}</ThemedText>
+                  <Pressable key={recipe.id} onPress={() => setRecipeId(recipe.id)} style={({ pressed }) => [pressed && styles.pressed]}>
+                    <ListRow
+                      title={recipe.name}
+                      subtitle={`${recipe.code} · ${recipe.category}`}
+                      accessory={selected ? <Tag>selecionada</Tag> : undefined}
+                    />
                   </Pressable>
                 );
               })}
-            </View>
+            </InsetGroup>
           )}
         </View>
 
@@ -223,29 +228,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
-  actions: {
-    gap: Spacing.two,
-  },
   recipePickerSection: {
     gap: Spacing.two,
-  },
-  recipePickerList: {
-    gap: Spacing.two,
-  },
-  recipeOption: {
-    borderRadius: 14,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    gap: 4,
-  },
-  recipeOptionSelected: {
-    backgroundColor: '#DBEAFE',
-  },
-  recipeOptionText: {
-    color: '#0F172A',
-  },
-  recipeOptionTextSelected: {
-    color: '#1D4ED8',
   },
   pressed: {
     opacity: 0.72,

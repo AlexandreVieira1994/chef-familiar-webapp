@@ -5,12 +5,16 @@ import { Alert, Linking, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppScreen,
+  ButtonRow,
   ChipSelector,
   FormField,
   InfoState,
+  InsetGroup,
+  ListRow,
   LabeledValue,
   LoadingState,
   SectionCard,
+  SectionHeader,
   Tag,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -109,6 +113,7 @@ export default function RecipeDetailScreen() {
 
       {currentRecipe && form ? (
         <>
+          <SectionHeader>Resumo</SectionHeader>
           <SectionCard>
             <View style={styles.header}>
               <ThemedText type="smallBold" themeColor="textSecondary">
@@ -125,8 +130,8 @@ export default function RecipeDetailScreen() {
             </View>
           </SectionCard>
 
+          <SectionHeader>Editar</SectionHeader>
           <SectionCard>
-            <ThemedText type="subtitle">Dados principais</ThemedText>
             <FormField label="Código" value={form.code} onChangeText={(code) => setForm((current) => (current ? { ...current, code } : current))} />
             <FormField label="Nome" value={form.name} onChangeText={(name) => setForm((current) => (current ? { ...current, name } : current))} />
             <FormField label="Categoria" value={form.category} onChangeText={(category) => setForm((current) => (current ? { ...current, category } : current))} />
@@ -140,35 +145,40 @@ export default function RecipeDetailScreen() {
             <FormField label="Imagem" value={form.image_url ?? ''} onChangeText={(image_url) => setForm((current) => (current ? { ...current, image_url } : current))} keyboardType="url" />
             <FormField label="Fonte" value={form.source_url} onChangeText={(source_url) => setForm((current) => (current ? { ...current, source_url } : current))} keyboardType="url" />
             <FormField label="Notas" value={form.notes ?? ''} onChangeText={(notes) => setForm((current) => (current ? { ...current, notes } : current))} multiline />
-            <AppButton label={saving ? 'A guardar...' : 'Guardar alterações'} onPress={() => void handleSave()} disabled={saving} />
-            <AppButton label="Abrir fonte original" tone="secondary" onPress={() => void Linking.openURL(currentRecipe.source_url)} />
-            <AppButton label="Voltar à lista" tone="secondary" onPress={() => router.back()} />
+            <ButtonRow>
+              <AppButton label={saving ? 'A guardar...' : 'Guardar'} onPress={() => void handleSave()} disabled={saving} />
+              <AppButton label="Fonte" tone="secondary" onPress={() => void Linking.openURL(currentRecipe.source_url)} />
+            </ButtonRow>
+            <ButtonRow>
+              <AppButton label="Voltar" tone="secondary" onPress={() => router.back()} />
+            </ButtonRow>
           </SectionCard>
 
+          <SectionHeader>Ingredientes</SectionHeader>
           <SectionCard>
-            <ThemedText type="subtitle">Ingredientes</ThemedText>
             {recipeDetail.data?.ingredients.length ? (
-              <View style={styles.ingredientList}>
+              <InsetGroup>
                 {recipeDetail.data.ingredients.map((ingredient) => (
-                  <View key={ingredient.id} style={styles.ingredientRow}>
-                    <ThemedText type="smallBold">{ingredient.ingredient_name}</ThemedText>
-                    <ThemedText themeColor="textSecondary">
-                      {formatQuantity(ingredient.quantity, ingredient.unit)}
-                    </ThemedText>
-                    <View style={styles.tags}>
-                      {ingredient.category ? <Tag>{ingredient.category}</Tag> : null}
-                      {ingredient.optional ? <Tag>opcional</Tag> : null}
-                    </View>
-                  </View>
+                  <ListRow
+                    key={ingredient.id}
+                    title={ingredient.ingredient_name}
+                    subtitle={formatQuantity(ingredient.quantity, ingredient.unit)}
+                    accessory={
+                      <View style={styles.tags}>
+                        {ingredient.category ? <Tag>{ingredient.category}</Tag> : null}
+                        {ingredient.optional ? <Tag>opcional</Tag> : null}
+                      </View>
+                    }
+                  />
                 ))}
-              </View>
+              </InsetGroup>
             ) : (
               <ThemedText themeColor="textSecondary">Esta receita ainda não tem ingredientes associados.</ThemedText>
             )}
           </SectionCard>
 
+          <SectionHeader>Histórico</SectionHeader>
           <SectionCard>
-            <ThemedText type="subtitle">Histórico disponível</ThemedText>
             <LabeledValue label="Criada" value={formatDateTime(currentRecipe.created_at)} />
             <LabeledValue label="Último feedback" value={formatDateTime(currentRecipe.last_feedback_at)} />
             <LabeledValue label="Notas de feedback" value={currentRecipe.feedback_notes || 'Sem feedback.'} />
@@ -191,11 +201,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
-  },
-  ingredientList: {
-    gap: Spacing.three,
-  },
-  ingredientRow: {
-    gap: Spacing.one,
   },
 });

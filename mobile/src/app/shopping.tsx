@@ -5,11 +5,13 @@ import { Alert, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppScreen,
+  ButtonRow,
   FormField,
   FormModal,
   InfoState,
   LoadingState,
   SectionCard,
+  SectionHeader,
   Tag,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -150,7 +152,9 @@ export default function ShoppingScreen() {
         </ThemedText>
       </View>
 
-      <AppButton label="Novo item" onPress={openCreate} />
+      <ButtonRow>
+        <AppButton label="Novo item" onPress={openCreate} />
+      </ButtonRow>
 
       {shopping.loading ? <LoadingState label="A carregar lista de compras..." /> : null}
 
@@ -175,6 +179,7 @@ export default function ShoppingScreen() {
         <InfoState title="Lista vazia" message="Ainda não há itens na lista ativa. Cria o primeiro item para arrancar." />
       ) : null}
 
+      {shopping.data?.items.length ? <SectionHeader>Itens</SectionHeader> : null}
       {shopping.data?.items.map((item) => (
         <SectionCard key={item.id}>
           <View style={styles.itemHeader}>
@@ -196,14 +201,14 @@ export default function ShoppingScreen() {
             </ThemedText>
           ) : null}
 
-          <View style={styles.actions}>
+          <ButtonRow>
             <AppButton
               label={item.purchased_status === 'comprado' ? 'Desfazer compra' : 'Marcar comprado'}
               onPress={() => void handleTogglePurchased(item)}
             />
             <AppButton label="Editar" tone="secondary" onPress={() => openEdit(item)} />
             <AppButton label="Apagar" tone="danger" onPress={() => handleDelete(item)} />
-          </View>
+          </ButtonRow>
         </SectionCard>
       ))}
 
@@ -239,9 +244,6 @@ const styles = StyleSheet.create({
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  actions: {
     gap: Spacing.two,
   },
 });

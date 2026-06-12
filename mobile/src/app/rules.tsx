@@ -5,11 +5,13 @@ import { Alert, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppScreen,
+  ButtonRow,
   FormField,
   FormModal,
   InfoState,
   LoadingState,
   SectionCard,
+  SectionHeader,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -99,7 +101,9 @@ export default function RulesScreen() {
         </ThemedText>
       </View>
 
-      <AppButton label="Nova regra" onPress={openCreate} />
+      <ButtonRow>
+        <AppButton label="Nova regra" onPress={openCreate} />
+      </ButtonRow>
 
       {rules.loading ? <LoadingState label="A carregar regras..." /> : null}
 
@@ -115,6 +119,7 @@ export default function RulesScreen() {
         <InfoState title="Sem regras" message="Ainda não tens regras familiares definidas. Cria a primeira regra para orientar o plano e o futuro assistente." />
       ) : null}
 
+      {rules.data?.length ? <SectionHeader>Regras ativas</SectionHeader> : null}
       {rules.data?.map((rule) => (
         <SectionCard key={rule.id}>
           <View style={styles.ruleHeader}>
@@ -123,10 +128,10 @@ export default function RulesScreen() {
             </ThemedText>
             <ThemedText style={styles.ruleValue}>{rule.rule_value}</ThemedText>
           </View>
-          <View style={styles.actions}>
+          <ButtonRow>
             <AppButton label="Editar" tone="secondary" onPress={() => openEdit(rule)} />
             <AppButton label="Apagar" tone="danger" onPress={() => handleDelete(rule)} />
-          </View>
+          </ButtonRow>
         </SectionCard>
       ))}
 
@@ -154,8 +159,5 @@ const styles = StyleSheet.create({
   },
   ruleValue: {
     lineHeight: 22,
-  },
-  actions: {
-    gap: Spacing.two,
   },
 });

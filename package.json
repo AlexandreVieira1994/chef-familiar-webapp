@@ -1,0 +1,11 @@
+{
+  "name": "chef-familiar-root",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix mobile run start",
+    "ios": "npm --prefix mobile run ios",
+    "android": "npm --prefix mobile run android",
+    "lint": "npm --prefix mobile run lint",
+    "typecheck": "npm --prefix mobile run typecheck"
+  }
+}

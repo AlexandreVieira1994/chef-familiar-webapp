@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, IOSColors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AppScreenProps = PropsWithChildren<{
@@ -41,8 +41,12 @@ export function SectionCard({ children }: PropsWithChildren) {
   return <View style={styles.card}>{children}</View>;
 }
 
-export function CardTitle({ children }: PropsWithChildren) {
-  return <ThemedText type="subtitle">{children}</ThemedText>;
+export function SectionHeader({ children }: PropsWithChildren) {
+  return (
+    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionHeader}>
+      {children}
+    </ThemedText>
+  );
 }
 
 export function FieldLabel({ children }: PropsWithChildren) {
@@ -61,8 +65,18 @@ type AppButtonProps = {
 };
 
 export function AppButton({ label, onPress, tone = 'primary', disabled }: AppButtonProps) {
-  const buttonStyles = [styles.button, tone === 'primary' && styles.buttonPrimary, tone === 'secondary' && styles.buttonSecondary, tone === 'danger' && styles.buttonDanger, disabled && styles.buttonDisabled];
-  const textStyles = [styles.buttonText, tone !== 'primary' && styles.buttonTextAlt];
+  const buttonStyles = [
+    styles.button,
+    tone === 'primary' && styles.buttonPrimary,
+    tone === 'secondary' && styles.buttonSecondary,
+    tone === 'danger' && styles.buttonDanger,
+    disabled && styles.buttonDisabled,
+  ];
+  const textStyles = [
+    styles.buttonText,
+    tone === 'secondary' && styles.buttonTextSecondary,
+    tone === 'danger' && styles.buttonTextDanger,
+  ];
 
   return (
     <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [buttonStyles, pressed && !disabled && styles.pressed]}>
@@ -85,6 +99,10 @@ export function InlineButton({ label, onPress, tone = 'default' }: InlineButtonP
       </ThemedText>
     </Pressable>
   );
+}
+
+export function ButtonRow({ children }: PropsWithChildren) {
+  return <View style={styles.buttonRow}>{children}</View>;
 }
 
 type FormFieldProps = {
@@ -223,6 +241,49 @@ export function Tag({ children }: PropsWithChildren) {
   );
 }
 
+export function ListRow({
+  title,
+  subtitle,
+  accessory,
+  onPress,
+}: {
+  title: string;
+  subtitle?: string;
+  accessory?: ReactNode;
+  onPress?: () => void;
+}) {
+  const content = (
+    <View style={styles.listRow}>
+      <View style={styles.listRowText}>
+        <ThemedText style={styles.listRowTitle}>{title}</ThemedText>
+        {subtitle ? (
+          <ThemedText themeColor="textSecondary" style={styles.listRowSubtitle}>
+            {subtitle}
+          </ThemedText>
+        ) : null}
+      </View>
+      <View style={styles.listRowAccessory}>
+        {accessory}
+        {onPress ? <ThemedText style={styles.chevron}>›</ThemedText> : null}
+      </View>
+    </View>
+  );
+
+  if (!onPress) {
+    return content;
+  }
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
+      {content}
+    </Pressable>
+  );
+}
+
+export function InsetGroup({ children }: PropsWithChildren) {
+  return <View style={styles.insetGroup}>{children}</View>;
+}
+
 type FormModalProps = PropsWithChildren<{
   visible: boolean;
   title: string;
@@ -232,12 +293,15 @@ type FormModalProps = PropsWithChildren<{
 
 export function FormModal({ visible, title, onClose, footer, children }: FormModalProps) {
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <ThemedView style={styles.modalScreen}>
         <SafeAreaView style={styles.modalSafeArea}>
           <View style={styles.modalHeader}>
-            <ThemedText type="subtitle">{title}</ThemedText>
-            <InlineButton label="Fechar" onPress={onClose} />
+            <InlineButton label="Cancelar" onPress={onClose} />
+            <ThemedText type="subtitle" style={styles.modalTitle}>
+              {title}
+            </ThemedText>
+            <View style={styles.modalHeaderSpacer} />
           </View>
           <ScrollView contentContainerStyle={styles.modalContent}>{children}</ScrollView>
           {footer ? <View style={styles.modalFooter}>{footer}</View> : null}
@@ -259,60 +323,77 @@ const styles = StyleSheet.create({
   safeArea: {
     width: '100%',
     maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 20,
   },
   card: {
-    gap: Spacing.three,
-    borderRadius: Spacing.four,
-    padding: Spacing.four,
-    backgroundColor: 'rgba(120, 120, 120, 0.10)',
+    gap: 12,
+    borderRadius: 14,
+    padding: 16,
+    backgroundColor: IOSColors.secondaryGroupedBackground,
+  },
+  sectionHeader: {
+    marginBottom: -8,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   button: {
-    minHeight: 46,
-    borderRadius: 14,
+    minHeight: 44,
+    borderRadius: 12,
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   buttonPrimary: {
-    backgroundColor: '#111827',
+    backgroundColor: IOSColors.blue,
   },
   buttonSecondary: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: IOSColors.tertiaryFill,
   },
   buttonDanger: {
-    backgroundColor: '#B91C1C',
+    backgroundColor: '#FFE9E8',
   },
   buttonDisabled: {
     opacity: 0.45,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontWeight: 700,
+    fontWeight: 600,
   },
-  buttonTextAlt: {
-    color: '#0F172A',
+  buttonTextSecondary: {
+    color: IOSColors.blue,
+    fontWeight: 600,
+  },
+  buttonTextDanger: {
+    color: IOSColors.red,
+    fontWeight: 600,
   },
   inlineButton: {
     paddingVertical: 8,
+    minWidth: 64,
   },
   inlineText: {
-    color: '#2563EB',
+    color: IOSColors.blue,
   },
   dangerText: {
-    color: '#B91C1C',
+    color: IOSColors.red,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   fieldGroup: {
-    gap: Spacing.two,
+    gap: 6,
   },
   input: {
-    minHeight: 46,
-    borderWidth: 1,
-    borderRadius: 14,
+    minHeight: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     backgroundColor: '#FFFFFF',
     fontSize: 16,
   },
@@ -329,16 +410,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: IOSColors.tertiaryFill,
   },
   chipSelected: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#DCEBFF',
   },
   chipText: {
-    color: '#334155',
+    color: '#3A3A3C',
   },
   chipSelectedText: {
-    color: '#FFFFFF',
+    color: IOSColors.blue,
   },
   stateBlock: {
     gap: Spacing.two,
@@ -354,33 +435,79 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   tag: {
-    borderRadius: Spacing.four,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    backgroundColor: 'rgba(120, 120, 120, 0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: IOSColors.tertiaryFill,
+  },
+  insetGroup: {
+    overflow: 'hidden',
+    borderRadius: 14,
+    backgroundColor: IOSColors.secondaryGroupedBackground,
+  },
+  listRow: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  listRowText: {
+    flex: 1,
+    gap: 2,
+  },
+  listRowTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: 400,
+  },
+  listRowSubtitle: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  listRowAccessory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chevron: {
+    color: IOSColors.separator,
+    fontSize: 24,
+    lineHeight: 24,
   },
   modalScreen: {
     flex: 1,
   },
   modalSafeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: 20,
+    gap: 16,
   },
   modalHeader: {
-    paddingTop: Spacing.three,
+    paddingTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.three,
+    gap: 12,
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: 600,
+  },
+  modalHeaderSpacer: {
+    minWidth: 64,
   },
   modalContent: {
-    gap: Spacing.three,
-    paddingBottom: Spacing.four,
+    gap: 16,
+    paddingBottom: 16,
   },
   modalFooter: {
-    paddingBottom: Spacing.four,
-    gap: Spacing.two,
+    paddingBottom: 16,
+    gap: 10,
   },
   pressed: {
     opacity: 0.7,
