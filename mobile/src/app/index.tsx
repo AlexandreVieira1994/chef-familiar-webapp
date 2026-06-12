@@ -1,127 +1,192 @@
 import { Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
 const primaryActions = [
   {
-    title: 'Inventario',
-    description: 'Ingredientes, lotes, validades, locais e stock disponivel.',
+    title: 'Inventário',
+    description: 'Ingredientes, lotes, validades e stock disponível.',
     href: '/inventory',
+    symbol: '🥕',
   },
   {
     title: 'Receitas',
-    description: 'Receitas por testar, aprovadas, neutras, a melhorar e rejeitadas.',
+    description: 'Receitas por testar, aprovadas, neutras e rejeitadas.',
     href: '/recipes',
+    symbol: '🍲',
   },
   {
     title: 'Plano semanal',
-    description: 'Refeicoes planeadas por data e momento do dia.',
+    description: 'Refeições por data e momento do dia.',
     href: '/planner',
+    symbol: '📅',
   },
   {
     title: 'Compras',
     description: 'Lista ativa e ingredientes em falta.',
     href: '/shopping',
+    symbol: '🛒',
   },
   {
     title: 'Regras familiares',
-    description: 'Preferencias e restricoes usadas pelo planeador e pela IA.',
+    description: 'Preferências usadas pelo planeador e pela IA.',
     href: '/rules',
+    symbol: '⚙️',
   },
 ] as const;
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
-              Chef Familiar
-            </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-              Interface mobile ligada a mesma arquitetura da web app: inventario, receitas,
-              planeamento, compras e regras familiares.
-            </ThemedText>
-          </View>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.heroCard}>
+          <Text style={styles.eyebrow}>MVP mobile</Text>
+          <Text style={styles.heroTitle}>Chef Familiar</Text>
+          <Text style={styles.heroText}>
+            Gestão simples de receitas, inventário, plano semanal, compras e regras familiares.
+          </Text>
+        </View>
 
-          <View style={styles.statusCard}>
-            <ThemedText type="subtitle">Prioridade mobile</ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.paragraph}>
-              Comecar por leitura simples das tabelas reais do Supabase. Depois adicionar criacao e
-              edicao segura, com confirmacao quando houver alteracoes persistentes.
-            </ThemedText>
-          </View>
-
-          <View style={styles.grid}>
-            {primaryActions.map((action) => (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ações principais</Text>
+          <View style={styles.groupedList}>
+            {primaryActions.map((action, index) => (
               <Link key={action.href} href={action.href} asChild>
-                <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-                  <ThemedText type="subtitle">{action.title}</ThemedText>
-                  <ThemedText themeColor="textSecondary" style={styles.cardDescription}>
-                    {action.description}
-                  </ThemedText>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.row,
+                    index < primaryActions.length - 1 && styles.rowBorder,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text style={styles.symbol}>{action.symbol}</Text>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowTitle}>{action.title}</Text>
+                    <Text style={styles.rowDescription}>{action.description}</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
                 </Pressable>
               </Link>
             ))}
           </View>
-        </SafeAreaView>
-      </ScrollView>
-    </ThemedView>
+        </View>
+
+        <View style={styles.noteCard}>
+          <Text style={styles.noteTitle}>Próximo passo</Text>
+          <Text style={styles.noteText}>
+            Ligar primeiro a leitura real do Supabase. Só depois adicionar escrita, edição e ações
+            persistentes com confirmação.
+          </Text>
+        </View>
+      </SafeAreaView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: '#F2F2F7',
   },
-  scrollContent: {
-    flexGrow: 1,
-    alignItems: 'center',
-    paddingBottom: BottomTabInset + Spacing.four,
+  content: {
+    paddingBottom: 40,
   },
   safeArea: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: 20,
+    gap: 24,
   },
-  header: {
-    gap: Spacing.two,
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 24,
+    gap: 10,
   },
-  title: {
+  eyebrow: {
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    color: '#111827',
     fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -0.8,
   },
-  subtitle: {
-    lineHeight: 22,
+  heroText: {
+    color: '#4B5563',
+    fontSize: 17,
+    lineHeight: 24,
   },
-  paragraph: {
+  section: {
+    gap: 10,
+  },
+  sectionTitle: {
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  groupedList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  row: {
+    minHeight: 76,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  rowBorder: {
+    borderBottomColor: '#E5E7EB',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pressed: {
+    opacity: 0.55,
+  },
+  symbol: {
+    fontSize: 26,
+    width: 34,
+    textAlign: 'center',
+  },
+  rowText: {
+    flex: 1,
+    gap: 3,
+  },
+  rowTitle: {
+    color: '#111827',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  rowDescription: {
+    color: '#6B7280',
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  chevron: {
+    color: '#9CA3AF',
+    fontSize: 30,
+    lineHeight: 30,
+  },
+  noteCard: {
+    backgroundColor: '#E8F3FF',
+    borderRadius: 22,
+    padding: 18,
+    gap: 6,
+  },
+  noteTitle: {
+    color: '#0F172A',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  noteText: {
+    color: '#334155',
+    fontSize: 15,
     lineHeight: 21,
-  },
-  statusCard: {
-    gap: Spacing.two,
-    borderRadius: Spacing.four,
-    padding: Spacing.four,
-    backgroundColor: 'rgba(120, 120, 120, 0.12)',
-  },
-  grid: {
-    gap: Spacing.three,
-  },
-  card: {
-    gap: Spacing.two,
-    borderRadius: Spacing.four,
-    padding: Spacing.four,
-    backgroundColor: 'rgba(120, 120, 120, 0.10)',
-  },
-  cardPressed: {
-    opacity: 0.7,
-  },
-  cardDescription: {
-    lineHeight: 20,
   },
 });
