@@ -3,6 +3,9 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
+const iconHome = require('@/assets/images/tabIcons/home.png');
+const iconExplore = require('@/assets/images/tabIcons/explore.png');
+
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
@@ -14,18 +17,27 @@ export default function AppTabs() {
       labelStyle={{ selected: { color: colors.text } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Icon src={iconHome} renderingMode="template" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
+      <NativeTabs.Trigger name="inventory">
+        <NativeTabs.Trigger.Label>Inventario</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={iconExplore} renderingMode="template" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="recipes">
+        <NativeTabs.Trigger.Label>Receitas</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={iconExplore} renderingMode="template" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="planner">
+        <NativeTabs.Trigger.Label>Plano</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={iconExplore} renderingMode="template" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="rules">
+        <NativeTabs.Trigger.Label>Regras</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={iconExplore} renderingMode="template" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
