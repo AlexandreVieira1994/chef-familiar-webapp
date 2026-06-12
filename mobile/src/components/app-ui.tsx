@@ -38,7 +38,9 @@ export function AppScreen({ children, refreshing, onRefresh }: AppScreenProps) {
 }
 
 export function SectionCard({ children }: PropsWithChildren) {
-  return <View style={styles.card}>{children}</View>;
+  const theme = useTheme();
+
+  return <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>{children}</View>;
 }
 
 export function SectionHeader({ children }: PropsWithChildren) {
@@ -65,11 +67,12 @@ type AppButtonProps = {
 };
 
 export function AppButton({ label, onPress, tone = 'primary', disabled }: AppButtonProps) {
+  const theme = useTheme();
   const buttonStyles = [
     styles.button,
     tone === 'primary' && styles.buttonPrimary,
-    tone === 'secondary' && styles.buttonSecondary,
-    tone === 'danger' && styles.buttonDanger,
+    tone === 'secondary' && [styles.buttonSecondary, { backgroundColor: theme.backgroundSelected }],
+    tone === 'danger' && [styles.buttonDanger, { backgroundColor: theme.backgroundSelected }],
     disabled && styles.buttonDisabled,
   ];
   const textStyles = [
@@ -92,9 +95,11 @@ type InlineButtonProps = {
 };
 
 export function InlineButton({ label, onPress, tone = 'default' }: InlineButtonProps) {
+  const theme = useTheme();
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.inlineButton, pressed && styles.pressed]}>
-      <ThemedText type="smallBold" style={tone === 'danger' ? styles.dangerText : styles.inlineText}>
+      <ThemedText type="smallBold" style={tone === 'danger' ? styles.dangerText : [styles.inlineText, { color: theme.text }]}>
         {label}
       </ThemedText>
     </Pressable>
@@ -134,7 +139,15 @@ export function FormField({
         placeholderTextColor={theme.textSecondary}
         keyboardType={keyboardType}
         multiline={multiline}
-        style={[styles.input, multiline && styles.textArea, { color: theme.text, borderColor: 'rgba(120, 120, 120, 0.18)' }]}
+        style={[
+          styles.input,
+          multiline && styles.textArea,
+          {
+            color: theme.text,
+            borderColor: 'rgba(120, 120, 120, 0.18)',
+            backgroundColor: theme.background,
+          },
+        ]}
       />
     </View>
   );
@@ -158,6 +171,8 @@ export function ChipSelector<TValue extends string>({
   options,
   onChange,
 }: ChipSelectorProps<TValue>) {
+  const theme = useTheme();
+
   return (
     <View style={styles.fieldGroup}>
       <FieldLabel>{label}</FieldLabel>
@@ -169,7 +184,12 @@ export function ChipSelector<TValue extends string>({
             <Pressable
               key={option.value}
               onPress={() => onChange(option.value)}
-              style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}>
+              style={({ pressed }) => [
+                styles.chip,
+                { backgroundColor: theme.backgroundSelected },
+                selected && styles.chipSelected,
+                pressed && styles.pressed,
+              ]}>
               <ThemedText type="smallBold" style={selected ? styles.chipSelectedText : styles.chipText}>
                 {option.label}
               </ThemedText>
@@ -234,8 +254,10 @@ export function LabeledValue({
 }
 
 export function Tag({ children }: PropsWithChildren) {
+  const theme = useTheme();
+
   return (
-    <View style={styles.tag}>
+    <View style={[styles.tag, { backgroundColor: theme.backgroundSelected }]}>
       <ThemedText type="small">{children}</ThemedText>
     </View>
   );
@@ -252,6 +274,8 @@ export function ListRow({
   accessory?: ReactNode;
   onPress?: () => void;
 }) {
+  const theme = useTheme();
+
   const content = (
     <View style={styles.listRow}>
       <View style={styles.listRowText}>
@@ -264,7 +288,7 @@ export function ListRow({
       </View>
       <View style={styles.listRowAccessory}>
         {accessory}
-        {onPress ? <ThemedText style={styles.chevron}>›</ThemedText> : null}
+        {onPress ? <ThemedText style={[styles.chevron, { color: theme.textSecondary }]}>›</ThemedText> : null}
       </View>
     </View>
   );
@@ -281,7 +305,9 @@ export function ListRow({
 }
 
 export function InsetGroup({ children }: PropsWithChildren) {
-  return <View style={styles.insetGroup}>{children}</View>;
+  const theme = useTheme();
+
+  return <View style={[styles.insetGroup, { backgroundColor: theme.backgroundElement }]}>{children}</View>;
 }
 
 type FormModalProps = PropsWithChildren<{
@@ -292,6 +318,8 @@ type FormModalProps = PropsWithChildren<{
 }>;
 
 export function FormModal({ visible, title, onClose, footer, children }: FormModalProps) {
+  const theme = useTheme();
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <ThemedView style={styles.modalScreen}>
@@ -304,7 +332,7 @@ export function FormModal({ visible, title, onClose, footer, children }: FormMod
             <View style={styles.modalHeaderSpacer} />
           </View>
           <ScrollView contentContainerStyle={styles.modalContent}>{children}</ScrollView>
-          {footer ? <View style={styles.modalFooter}>{footer}</View> : null}
+          {footer ? <View style={[styles.modalFooter, { backgroundColor: theme.background }]}>{footer}</View> : null}
         </SafeAreaView>
       </ThemedView>
     </Modal>

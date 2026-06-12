@@ -7,9 +7,10 @@ export default function RootLayout() {
   return (
     <Stack
       screenOptions={{
-        headerLargeTitle: true,
+        headerLargeTitle: false,
         headerShadowVisible: false,
-        headerBackTitle: 'Voltar',
+        headerBackTitle: '',
+        headerTitle: '',
         contentStyle: {
           backgroundColor: colorScheme === 'dark' ? '#000000' : '#F2F2F7',
         },
