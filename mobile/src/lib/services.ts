@@ -292,15 +292,25 @@ export async function deleteMealPlanEntry(id: string) {
 
 export async function ensureActiveShoppingList() {
   const client = getClient();
-  const activeList =
-    (await runQuery<ShoppingList | null>(
+  const activeLists =
+    (await runQuery<ShoppingList[]>(
       client
         .from('shopping_lists')
         .select('id, start_date, end_date, status, created_at')
         .eq('status', 'ativa')
-        .order('created_at', { ascending: false })
-        .maybeSingle(),
-    )) ?? null;
+        .order('created_at', { ascending: false }),
+    )) ?? [];
+
+  const [activeList] = activeLists;
+
+  if (activeList && activeLists.length > 1) {
+    const staleListIds = activeLists.slice(1).map((list) => list.id);
+
+    await runQuery(
+      client.from('shopping_list_items').delete().in('shopping_list_id', staleListIds),
+    );
+    await runQuery(client.from('shopping_lists').delete().in('id', staleListIds));
+  }
 
   if (activeList) return activeList;
 

@@ -71,6 +71,10 @@ create table if not exists shopping_list_items (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists shopping_lists_single_active_idx
+  on shopping_lists (status)
+  where status = 'ativa';
+
 alter table shopping_list_items add column if not exists purchased_quantity numeric;
 alter table shopping_list_items add column if not exists inventory_entry_id uuid references inventory_entries(id) on delete set null;
 
