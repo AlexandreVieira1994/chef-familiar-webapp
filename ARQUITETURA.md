@@ -43,6 +43,21 @@ Versoes base esperadas:
 - React 19.1
 - Node.js 20.19 ou superior
 
+## Design
+
+As decisoes de UI e UX desta app devem seguir como referencia principal o Apple
+Human Interface Guidelines, especialmente para:
+
+- hierarquia de navegacao e titulos
+- escolha e comportamento de controlos
+- espacamento e densidade de informacao
+- feedback, confirmacoes e estados de erro
+- escrita curta, clara e orientada a tarefa
+
+Referencia oficial:
+
+- `https://developer.apple.com/design/human-interface-guidelines`
+
 ## Supabase
 
 O cliente mobile usa variaveis publicas do Expo:
