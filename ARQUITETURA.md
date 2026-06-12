@@ -12,8 +12,23 @@ iPhone com Expo Go.
 - `mobile/src/components`: componentes React Native partilhados.
 - `mobile/src/constants`: tema visual e constantes de layout.
 - `mobile/src/hooks`: hooks comuns.
-- `mobile/src/lib`: integracoes de infraestrutura, incluindo Supabase.
+- `mobile/src/lib`: integracoes de infraestrutura, tipos, formatters e servicos
+  de dominio sobre Supabase.
 - `supabase`: schema, seeds e migracoes SQL.
+
+## Estado funcional
+
+O mobile ja contem uma base operacional sem IA:
+
+- dashboard com contadores e resumos reais
+- receitas com lista, detalhe e edicao
+- inventario com criacao, edicao e soft delete
+- plano semanal com criacao, substituicao de entradas e remocao
+- compras com lista ativa, marcacao de comprado e desfazer compra
+- regras familiares com CRUD simples
+
+Tambem existe um contrato inicial para propostas do futuro assistente de IA,
+mas o copiloto ainda nao esta exposto na interface.
 
 ## Expo
 

@@ -56,6 +56,9 @@ depender da rede local.
 - Estrutura Expo mobile criada.
 - SDK alinhado para Expo Go SDK 54.
 - Cliente Supabase base configurado em `mobile/src/lib/supabase.ts`.
-- Ecras iniciais existem para inventario, receitas, plano, compras e regras.
-- As leituras/escritas reais do Supabase ainda devem ser ligadas e validadas por
-  ecran.
+- Dashboard com resumos reais de receitas, inventario, compras, regras e
+  proximas refeicoes.
+- Modulos operacionais para receitas, inventario, plano semanal, compras e
+  regras familiares.
+- Camada de servicos/tipos mobile criada para preparar a futura integracao do
+  copiloto de IA.

@@ -1,99 +1,176 @@
-import { Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Link, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { AppButton, AppScreen, InfoState, LoadingState, SectionCard } from '@/components/app-ui';
+import { ThemedText } from '@/components/themed-text';
+import { Spacing } from '@/constants/theme';
+import { formatDate, formatQuantity } from '@/lib/format';
+import { getDashboardSummary } from '@/lib/services';
+import { useAsyncResource } from '@/hooks/use-async-resource';
 
 const primaryActions = [
   {
     title: 'Inventário',
-    description: 'Ingredientes, lotes, validades e stock disponível.',
+    description: 'Lotes, validades e stock disponível.',
     href: '/inventory',
     symbol: '🥕',
   },
   {
     title: 'Receitas',
-    description: 'Receitas por testar, aprovadas, neutras e rejeitadas.',
+    description: 'Receitas, estados, notas e detalhe.',
     href: '/recipes',
     symbol: '🍲',
   },
   {
     title: 'Plano semanal',
-    description: 'Refeições por data e momento do dia.',
+    description: 'Refeições futuras por data e momento do dia.',
     href: '/planner',
     symbol: '📅',
   },
   {
     title: 'Compras',
-    description: 'Lista ativa e ingredientes em falta.',
+    description: 'Lista ativa, compras feitas e ligação ao inventário.',
     href: '/shopping',
     symbol: '🛒',
   },
   {
     title: 'Regras familiares',
-    description: 'Preferências usadas pelo planeador e pela IA.',
+    description: 'Preferências que vão alimentar o copiloto de IA.',
     href: '/rules',
     symbol: '⚙️',
   },
 ] as const;
 
 export default function HomeScreen() {
+  const loadSummary = useCallback(() => getDashboardSummary(), []);
+  const summary = useAsyncResource(loadSummary);
+  const reload = summary.reload;
+
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+    }, [reload]),
+  );
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>MVP mobile</Text>
-          <Text style={styles.heroTitle}>Chef Familiar</Text>
-          <Text style={styles.heroText}>
-            Gestão simples de receitas, inventário, plano semanal, compras e regras familiares.
-          </Text>
-        </View>
+    <AppScreen refreshing={summary.refreshing} onRefresh={() => void reload()}>
+      <View style={styles.heroCard}>
+        <ThemedText style={styles.eyebrow}>Base operacional</ThemedText>
+        <ThemedText type="title" style={styles.heroTitle}>
+          Chef Familiar
+        </ThemedText>
+        <ThemedText themeColor="textSecondary" style={styles.heroText}>
+          App mobile para receitas, inventário, plano semanal, compras e regras familiares, pronta para evoluir para um copiloto de IA com confirmação.
+        </ThemedText>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ações principais</Text>
-          <View style={styles.groupedList}>
-            {primaryActions.map((action, index) => (
-              <Link key={action.href} href={action.href} asChild>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.row,
-                    index < primaryActions.length - 1 && styles.rowBorder,
-                    pressed && styles.pressed,
-                  ]}>
-                  <Text style={styles.symbol}>{action.symbol}</Text>
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowTitle}>{action.title}</Text>
-                    <Text style={styles.rowDescription}>{action.description}</Text>
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </Pressable>
-              </Link>
-            ))}
+      {summary.loading ? <LoadingState label="A carregar o dashboard..." /> : null}
+
+      {summary.error ? (
+        <InfoState
+          title="Não foi possível abrir o dashboard"
+          message={summary.error}
+          action={<AppButton label="Tentar novamente" onPress={() => void reload()} />}
+        />
+      ) : null}
+
+      {summary.data ? (
+        <>
+          <View style={styles.statsGrid}>
+            <SectionCard>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Receitas
+              </ThemedText>
+              <ThemedText type="subtitle">{String(summary.data.recipesCount)}</ThemedText>
+            </SectionCard>
+            <SectionCard>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Stock ativo
+              </ThemedText>
+              <ThemedText type="subtitle">{String(summary.data.inventoryActiveCount)}</ThemedText>
+            </SectionCard>
+            <SectionCard>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Compras em falta
+              </ThemedText>
+              <ThemedText type="subtitle">{String(summary.data.shoppingPendingCount)}</ThemedText>
+            </SectionCard>
+            <SectionCard>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Regras
+              </ThemedText>
+              <ThemedText type="subtitle">{String(summary.data.rulesCount)}</ThemedText>
+            </SectionCard>
           </View>
-        </View>
 
-        <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>Próximo passo</Text>
-          <Text style={styles.noteText}>
-            Ligar primeiro a leitura real do Supabase. Só depois adicionar escrita, edição e ações
-            persistentes com confirmação.
-          </Text>
-        </View>
-      </SafeAreaView>
-    </ScrollView>
+          <SectionCard>
+            <ThemedText type="subtitle">Atalhos principais</ThemedText>
+            <View style={styles.groupedList}>
+              {primaryActions.map((action, index) => (
+                <Link key={action.href} href={action.href} asChild>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.row,
+                      index < primaryActions.length - 1 && styles.rowBorder,
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText style={styles.symbol}>{action.symbol}</ThemedText>
+                    <View style={styles.rowText}>
+                      <ThemedText style={styles.rowTitle}>{action.title}</ThemedText>
+                      <ThemedText themeColor="textSecondary" style={styles.rowDescription}>
+                        {action.description}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.chevron}>›</ThemedText>
+                  </Pressable>
+                </Link>
+              ))}
+            </View>
+          </SectionCard>
+
+          <SectionCard>
+            <ThemedText type="subtitle">Próximas refeições</ThemedText>
+            {summary.data.upcomingMeals.length === 0 ? (
+              <ThemedText themeColor="textSecondary">Ainda não há refeições planeadas.</ThemedText>
+            ) : (
+              <View style={styles.stack}>
+                {summary.data.upcomingMeals.map((meal) => (
+                  <View key={meal.id} style={styles.listRow}>
+                    <ThemedText type="smallBold">
+                      {formatDate(meal.planned_date)} · {meal.meal_slot}
+                    </ThemedText>
+                    <ThemedText>{meal.recipe?.name ?? 'Receita em falta'}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+          </SectionCard>
+
+          <SectionCard>
+            <ThemedText type="subtitle">Stock a vigiar</ThemedText>
+            {summary.data.lowStockEntries.length === 0 ? (
+              <ThemedText themeColor="textSecondary">Nenhuma entrada marcada como stock baixo.</ThemedText>
+            ) : (
+              <View style={styles.stack}>
+                {summary.data.lowStockEntries.map((entry) => (
+                  <View key={entry.id} style={styles.listRow}>
+                    <ThemedText type="smallBold">{entry.ingredient_name}</ThemedText>
+                    <ThemedText themeColor="textSecondary">
+                      {formatQuantity(entry.quantity_remaining, entry.unit)}
+                    </ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+          </SectionCard>
+        </>
+      ) : null}
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  content: {
-    paddingBottom: 40,
-  },
-  safeArea: {
-    paddingHorizontal: 20,
-    gap: 24,
-  },
   heroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
@@ -111,32 +188,22 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 34,
     fontWeight: '800',
-    letterSpacing: -0.8,
+    letterSpacing: 0,
+    lineHeight: 40,
   },
   heroText: {
-    color: '#4B5563',
     fontSize: 17,
     lineHeight: 24,
   },
-  section: {
-    gap: 10,
-  },
-  sectionTitle: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '700',
-    paddingHorizontal: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+  statsGrid: {
+    gap: Spacing.three,
   },
   groupedList: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     overflow: 'hidden',
   },
   row: {
     minHeight: 76,
-    paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -145,9 +212,6 @@ const styles = StyleSheet.create({
   rowBorder: {
     borderBottomColor: '#E5E7EB',
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  pressed: {
-    opacity: 0.55,
   },
   symbol: {
     fontSize: 26,
@@ -164,7 +228,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   rowDescription: {
-    color: '#6B7280',
     fontSize: 14,
     lineHeight: 19,
   },
@@ -173,20 +236,14 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 30,
   },
-  noteCard: {
-    backgroundColor: '#E8F3FF',
-    borderRadius: 22,
-    padding: 18,
-    gap: 6,
+  stack: {
+    gap: Spacing.two,
   },
-  noteTitle: {
-    color: '#0F172A',
-    fontSize: 17,
-    fontWeight: '700',
+  listRow: {
+    gap: 4,
+    paddingVertical: 4,
   },
-  noteText: {
-    color: '#334155',
-    fontSize: 15,
-    lineHeight: 21,
+  pressed: {
+    opacity: 0.55,
   },
 });

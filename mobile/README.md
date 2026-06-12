@@ -40,3 +40,5 @@ npx expo-doctor
   teste.
 - O cliente Supabase fica em `src/lib/supabase.ts`.
 - `EXPO_PUBLIC_*` fica visivel no bundle mobile; usar apenas chaves publicas.
+- A app ja inclui dashboard e modulos reais para receitas, inventario, plano,
+  compras e regras.
