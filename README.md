@@ -1,53 +1,58 @@
-# Chef Familiar Web App
+# Chef Familiar
 
-Web app pessoal para planeamento alimentar familiar, receitas, inventario e lista de compras.
+Aplicacao mobile Expo para planeamento alimentar familiar, receitas, inventario,
+lista de compras e regras da familia.
 
 ## Stack
 
-- Next.js
-- TypeScript
-- Tailwind CSS
+- Expo SDK 54
+- React Native 0.81
+- Expo Router
 - Supabase
-- Vercel
+- GitHub
 
-## Setup 100% online
+## Estrutura
 
-### 1. Supabase
+- `mobile/`: app Expo usada no iPhone com Expo Go SDK 54.
+- `supabase/`: schema, seeds e migracoes da base de dados.
 
-1. Criar projeto em supabase.com.
-2. Ir a SQL Editor.
-3. Copiar e executar `supabase/schema.sql`.
-4. Copiar e executar `supabase/seed.sql`.
-5. Ir a Project Settings > API.
-6. Copiar Project URL e anon public key.
+O codigo antigo da app web Next.js/Vercel foi removido. O repo passa a ter o
+mobile como superficie principal.
 
-### 2. Vercel
+## Setup local
 
-1. Criar conta em vercel.com.
-2. Importar este repositorio GitHub.
-3. Em Environment Variables adicionar:
-   - NEXT_PUBLIC_SUPABASE_URL
-   - NEXT_PUBLIC_SUPABASE_ANON_KEY
-   - OPENAI_API_KEY, para o assistente natural com IA
-   - OPENAI_MODEL, opcional, por omissao `gpt-5.4-mini`
-4. Fazer Deploy.
+```bash
+cd mobile
+npm install
+cp .env.example .env
+npm run start
+```
+
+Preenche `mobile/.env` com:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+```
+
+Usa apenas a anon/publishable key no cliente mobile. Nunca colocar service role
+keys no Expo.
+
+## Scripts
+
+```bash
+cd mobile
+npm run start
+npm run ios
+npm run android
+npm run typecheck
+```
 
 ## Estado atual
 
-- Dashboard criado.
-- Pagina Receitas criada.
-- Pagina Planeador criada.
-- Pagina Compras criada.
-- Pagina Inventario criada.
-- Pagina Regras criada.
-- Assistente natural global criado para inventario e compras.
-- Schema Supabase inicial criado.
-- Seed inicial com receitas RF001 a RF015 criado.
-
-## Proximos passos
-
-1. Ligar paginas diretamente a Supabase.
-2. Criar CRUD de receitas.
-3. Criar CRUD de inventario.
-4. Adicionar voz/ditado ao assistente.
-5. Ativar gerador de plano com IA.
+- Estrutura Expo mobile criada.
+- SDK alinhado para Expo Go SDK 54.
+- Cliente Supabase base configurado em `mobile/src/lib/supabase.ts`.
+- Ecras iniciais existem para inventario, receitas, plano, compras e regras.
+- As leituras/escritas reais do Supabase ainda devem ser ligadas e validadas por
+  ecran.

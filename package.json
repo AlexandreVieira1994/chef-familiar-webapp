@@ -1,1 +1,0 @@
-{"name":"chef-familiar-mobile","version":"0.1.0","private":true,"scripts":{"start":"cd mobile && npm start","ios":"cd mobile && npm run ios","android":"cd mobile && npm run android","web":"cd mobile && npm run web","lint":"cd mobile && npm run lint"}}
