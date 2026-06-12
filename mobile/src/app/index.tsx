@@ -1,98 +1,127 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Link } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+const primaryActions = [
+  {
+    title: 'Inventario',
+    description: 'Ingredientes, lotes, validades, locais e stock disponivel.',
+    href: '/inventory',
+  },
+  {
+    title: 'Receitas',
+    description: 'Receitas por testar, aprovadas, neutras, a melhorar e rejeitadas.',
+    href: '/recipes',
+  },
+  {
+    title: 'Plano semanal',
+    description: 'Refeicoes planeadas por data e momento do dia.',
+    href: '/planner',
+  },
+  {
+    title: 'Compras',
+    description: 'Lista ativa e ingredientes em falta.',
+    href: '/shopping',
+  },
+  {
+    title: 'Regras familiares',
+    description: 'Preferencias e restricoes usadas pelo planeador e pela IA.',
+    href: '/rules',
+  },
+] as const;
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <ThemedView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <ThemedText type="title" style={styles.title}>
+              Chef Familiar
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+              Interface mobile ligada a mesma arquitetura da web app: inventario, receitas,
+              planeamento, compras e regras familiares.
+            </ThemedText>
+          </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+          <View style={styles.statusCard}>
+            <ThemedText type="subtitle">Prioridade mobile</ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.paragraph}>
+              Comecar por leitura simples das tabelas reais do Supabase. Depois adicionar criacao e
+              edicao segura, com confirmacao quando houver alteracoes persistentes.
+            </ThemedText>
+          </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
+          <View style={styles.grid}>
+            {primaryActions.map((action) => (
+              <Link key={action.href} href={action.href} asChild>
+                <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+                  <ThemedText type="subtitle">{action.title}</ThemedText>
+                  <ThemedText themeColor="textSecondary" style={styles.cardDescription}>
+                    {action.description}
+                  </ThemedText>
+                </Pressable>
+              </Link>
+            ))}
+          </View>
+        </SafeAreaView>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingBottom: BottomTabInset + Spacing.four,
   },
   safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    width: '100%',
     maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
     paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
     gap: Spacing.four,
   },
+  header: {
+    gap: Spacing.two,
+  },
   title: {
-    textAlign: 'center',
+    fontSize: 34,
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    lineHeight: 22,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
+  paragraph: {
+    lineHeight: 21,
+  },
+  statusCard: {
+    gap: Spacing.two,
     borderRadius: Spacing.four,
+    padding: Spacing.four,
+    backgroundColor: 'rgba(120, 120, 120, 0.12)',
+  },
+  grid: {
+    gap: Spacing.three,
+  },
+  card: {
+    gap: Spacing.two,
+    borderRadius: Spacing.four,
+    padding: Spacing.four,
+    backgroundColor: 'rgba(120, 120, 120, 0.10)',
+  },
+  cardPressed: {
+    opacity: 0.7,
+  },
+  cardDescription: {
+    lineHeight: 20,
   },
 });
