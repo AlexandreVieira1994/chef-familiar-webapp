@@ -24,9 +24,13 @@ import { sanitizeOptionalText } from '@/lib/format';
 import { listRecipes, upsertRecipe } from '@/lib/services';
 import { RecipeSourceType, RecipeStatus, RecipeUpsertInput } from '@/lib/types';
 
+function createInternalRecipeCode() {
+  return `RF-${Date.now().toString(36).toUpperCase()}`;
+}
+
 function createEmptyForm(): RecipeUpsertInput {
   return {
-    code: '',
+    code: createInternalRecipeCode(),
     name: '',
     category: '',
     status: 'por_testar',
@@ -59,8 +63,8 @@ export default function RecipesScreen() {
   const sortedStatuses = useMemo(() => recipeStatusOptions, []);
 
   async function handleCreateRecipe() {
-    if (!form.code.trim() || !form.name.trim() || !form.category.trim()) {
-      Alert.alert('Campos em falta', 'Preenche pelo menos código, nome e categoria.');
+    if (!form.name.trim() || !form.category.trim()) {
+      Alert.alert('Campos em falta', 'Preenche pelo menos nome e categoria.');
       return;
     }
 
@@ -139,7 +143,7 @@ export default function RecipesScreen() {
             onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
             <ListRow
               title={recipe.name}
-              subtitle={`${recipe.code} · ${recipe.category} · ${recipe.source_type}${recipe.cost_level ? ` · ${recipe.cost_level}` : ''}`}
+              subtitle={`${recipe.category} · ${recipe.source_type}${recipe.cost_level ? ` · ${recipe.cost_level}` : ''}`}
               accessory={<Tag>{recipe.status}</Tag>}
             />
           </Pressable>
@@ -151,7 +155,6 @@ export default function RecipesScreen() {
         title="Nova receita"
         onClose={() => setFormVisible(false)}
         footer={<AppButton label={saving ? 'A guardar...' : 'Guardar receita'} onPress={() => void handleCreateRecipe()} disabled={saving} />}>
-        <FormField label="Código" value={form.code} onChangeText={(code) => setForm((current) => ({ ...current, code }))} placeholder="RF011" />
         <FormField label="Nome" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} placeholder="Nome da receita" />
         <FormField label="Categoria" value={form.category} onChangeText={(category) => setForm((current) => ({ ...current, category }))} placeholder="Vegetariano, Sopa, Peixe..." />
         <ChipSelector<RecipeStatus>

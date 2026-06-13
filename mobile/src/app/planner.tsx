@@ -193,7 +193,7 @@ export default function PlannerScreen() {
                   <Pressable key={recipe.id} onPress={() => setRecipeId(recipe.id)} style={({ pressed }) => [pressed && styles.pressed]}>
                     <ListRow
                       title={recipe.name}
-                      subtitle={`${recipe.code} · ${recipe.category}`}
+                      subtitle={recipe.category}
                       accessory={selected ? <Tag>selecionada</Tag> : undefined}
                     />
                   </Pressable>

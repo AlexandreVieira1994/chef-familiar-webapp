@@ -94,8 +94,8 @@ export default function RecipeDetailScreen() {
   const handleSave = useCallback(async () => {
     if (!form || !form.id) return;
 
-    if (!form.code.trim() || !form.name.trim() || !form.category.trim()) {
-      Alert.alert('Campos em falta', 'Preenche código, nome e categoria.');
+    if (!form.name.trim() || !form.category.trim()) {
+      Alert.alert('Campos em falta', 'Preenche nome e categoria.');
       return;
     }
 
@@ -226,9 +226,6 @@ export default function RecipeDetailScreen() {
           <SectionHeader>Resumo</SectionHeader>
           <SectionCard>
             <View style={styles.header}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                {currentRecipe.code}
-              </ThemedText>
               <ThemedText type="title" style={styles.title}>
                 {currentRecipe.name}
               </ThemedText>
@@ -243,7 +240,6 @@ export default function RecipeDetailScreen() {
 
           <SectionHeader>Editar</SectionHeader>
           <SectionCard>
-            <FormField label="Código" value={form.code} onChangeText={(code) => setForm((current) => (current ? { ...current, code } : current))} />
             <FormField label="Nome" value={form.name} onChangeText={(name) => setForm((current) => (current ? { ...current, name } : current))} />
             <FormField label="Categoria" value={form.category} onChangeText={(category) => setForm((current) => (current ? { ...current, category } : current))} />
             <ChipSelector<RecipeStatus>
