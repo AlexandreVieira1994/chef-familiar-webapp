@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
@@ -22,6 +23,11 @@ export type RecipeIngredientDraft = {
   unit: string;
   category: string;
   optional: 'sim' | 'nao';
+};
+
+export type RecipeImageSelection = {
+  displayUri: string;
+  storedValue: string;
 };
 
 export function createEmptyStep(): RecipeStepDraft {
@@ -55,6 +61,23 @@ export function ingredientDraftToInput(recipeId: string, draft: RecipeIngredient
   };
 }
 
+async function imageAssetToSelection(asset: ImagePicker.ImagePickerAsset): Promise<RecipeImageSelection> {
+  const result = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 1200 } }], {
+    base64: true,
+    compress: 0.6,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+
+  if (!result.base64) {
+    throw new Error('Não foi possível preparar a imagem selecionada.');
+  }
+
+  return {
+    displayUri: result.uri,
+    storedValue: `data:image/jpeg;base64,${result.base64}`,
+  };
+}
+
 export function RecipeImagePicker({
   value,
   onChange,
@@ -76,11 +99,13 @@ export function RecipeImagePicker({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.85,
+      quality: 0.55,
+      base64: true,
     });
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      onChange(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) {
+      const image = await imageAssetToSelection(result.assets[0]);
+      onChange(image.storedValue);
     }
   }
 
@@ -96,11 +121,13 @@ export function RecipeImagePicker({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.85,
+      quality: 0.55,
+      base64: true,
     });
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      onChange(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) {
+      const image = await imageAssetToSelection(result.assets[0]);
+      onChange(image.storedValue);
     }
   }
 
@@ -124,6 +151,79 @@ export function RecipeImagePicker({
         </ButtonRow>
       ) : null}
     </View>
+  );
+}
+
+export function RecipeImageOverlayAction({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string | null;
+  onChange: (image: RecipeImageSelection | null) => void;
+  disabled?: boolean;
+}) {
+  async function pickFromLibrary() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permissão necessária', 'Autoriza o acesso às fotos para anexar uma imagem.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.55,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      onChange(await imageAssetToSelection(result.assets[0]));
+    }
+  }
+
+  async function takePhoto() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permissão necessária', 'Autoriza o acesso à câmara para tirar uma foto.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.55,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      onChange(await imageAssetToSelection(result.assets[0]));
+    }
+  }
+
+  function openOptions() {
+    if (disabled) return;
+
+    Alert.alert(value ? 'Alterar imagem' : 'Adicionar imagem', undefined, [
+      { text: 'Tirar foto', onPress: () => void takePhoto() },
+      { text: 'Anexar', onPress: () => void pickFromLibrary() },
+      ...(value ? [{ text: 'Remover', style: 'destructive' as const, onPress: () => onChange(null) }] : []),
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }
+
+  if (disabled) return null;
+
+  return (
+    <Pressable onPress={openOptions} style={({ pressed }) => [styles.imageOverlayAction, pressed && styles.pressed]}>
+      <ThemedText type="smallBold" style={styles.imageOverlayActionText}>
+        {value ? 'Alterar imagem' : 'Adicionar imagem'}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -303,6 +403,20 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: 190,
+  },
+  imageOverlayAction: {
+    position: 'absolute',
+    left: 12,
+    bottom: 12,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0, 122, 255, 0.92)',
+  },
+  imageOverlayActionText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 16,
   },
   subField: {
     gap: Spacing.two,

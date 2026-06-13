@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image as NativeImage, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -24,6 +24,10 @@ function getInitials(title: string) {
   return words.map((word) => word[0]?.toUpperCase()).join('');
 }
 
+function isLocalImageUri(uri: string) {
+  return uri.startsWith('file:') || uri.startsWith('content:') || uri.startsWith('assets-library:') || uri.startsWith('ph:') || uri.startsWith('data:');
+}
+
 export function RecipeImage({ uri, title, subtitle, variant }: RecipeImageProps) {
   const [failed, setFailed] = useState(false);
   const isHero = variant === 'hero';
@@ -33,6 +37,17 @@ export function RecipeImage({ uri, title, subtitle, variant }: RecipeImageProps)
   }, [uri]);
 
   if (uri && !failed) {
+    if (isLocalImageUri(uri)) {
+      return (
+        <NativeImage
+          source={{ uri }}
+          style={isHero ? styles.heroImage : styles.thumbnail}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+        />
+      );
+    }
+
     return (
       <Image
         source={{ uri }}
@@ -67,6 +82,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     borderRadius: 14,
+    overflow: 'hidden',
   },
   fallback: {
     overflow: 'hidden',

@@ -19,7 +19,8 @@ import {
   createEmptyIngredient,
   createEmptyStep,
   ingredientDraftToInput,
-  RecipeImagePicker,
+  RecipeImageOverlayAction,
+  RecipeImageSelection,
   RecipeIngredientDraft,
   RecipeIngredientFields,
   RecipeStepDraft,
@@ -39,7 +40,6 @@ import {
   listRecipeSteps,
   saveRecipeIngredients,
   saveRecipeSteps,
-  uploadRecipeImage,
   updateRecipeFeedback,
   upsertRecipe,
 } from '@/lib/services';
@@ -134,7 +134,8 @@ export default function RecipeDetailScreen() {
   const [form, setForm] = useState<EditRecipeForm | null>(null);
   const [steps, setSteps] = useState<RecipeStepDraft[]>([createEmptyStep()]);
   const [ingredientDrafts, setIngredientDrafts] = useState<RecipeIngredientDraft[]>([]);
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imagePreviewUri, setImagePreviewUri] = useState<string | null>(null);
+  const [imageStoredValue, setImageStoredValue] = useState<string | null>(null);
 
   const loadRecipeDetail = useCallback(async () => {
     const recipe = await getRecipe(id);
@@ -168,9 +169,9 @@ export default function RecipeDetailScreen() {
       form.dish_type !== initialForm.dish_type ||
       form.cost_level !== initialForm.cost_level ||
       form.servings.trim() !== initialForm.servings ||
-      imageUri !== recipeDetail.data.recipe.image_url
+      imageStoredValue !== recipeDetail.data.recipe.image_url
     );
-  }, [form, imageUri, recipeDetail.data]);
+  }, [form, imageStoredValue, recipeDetail.data]);
   const feedbackChanged = useMemo(() => {
     if (!recipeDetail.data || !form) return false;
 
@@ -205,8 +206,14 @@ export default function RecipeDetailScreen() {
     setForm(createEditForm(recipeDetail.data.recipe));
     setSteps(stepDraftsFromSteps(recipeDetail.data.steps));
     setIngredientDrafts(ingredientDraftsFromIngredients(recipeDetail.data.ingredients, recipeDetail.data.catalog));
-    setImageUri(recipeDetail.data.recipe.image_url);
+    setImagePreviewUri(recipeDetail.data.recipe.image_url);
+    setImageStoredValue(recipeDetail.data.recipe.image_url);
   }, [recipeDetail.data]);
+
+  function handleImageChange(image: RecipeImageSelection | null) {
+    setImagePreviewUri(image?.displayUri ?? null);
+    setImageStoredValue(image?.storedValue ?? null);
+  }
 
   async function handleSave() {
     if (!currentRecipe || !form) return;
@@ -259,13 +266,6 @@ export default function RecipeDetailScreen() {
     setSaving(true);
 
     try {
-      let imageUrl = form.image_url;
-
-      if (imageUri && imageUri !== currentRecipe.image_url) {
-        const uploaded = await uploadRecipeImage(imageUri);
-        imageUrl = uploaded.publicUrl;
-      }
-
       await upsertRecipe({
         id: currentRecipe.id,
         code: currentRecipe.code,
@@ -278,7 +278,7 @@ export default function RecipeDetailScreen() {
         cost_level: sanitizeOptionalText(form.cost_level),
         notes: currentRecipe.notes,
         servings,
-        image_url: imageUrl,
+        image_url: imageStoredValue,
         source_type: 'criada',
         source_url: null,
       });
@@ -328,12 +328,15 @@ export default function RecipeDetailScreen() {
           <SectionHeader>Resumo</SectionHeader>
           <SectionCard>
             <View style={styles.header}>
-              <RecipeImage
-                uri={currentRecipe.image_url}
-                title={currentRecipe.name}
-                subtitle={`${currentRecipe.category} · ${currentRecipe.dish_type}`}
-                variant="hero"
-              />
+              <View style={styles.heroImageFrame}>
+                <RecipeImage
+                  uri={imagePreviewUri}
+                  title={currentRecipe.name}
+                  subtitle={`${currentRecipe.category} · ${currentRecipe.dish_type}`}
+                  variant="hero"
+                />
+                <RecipeImageOverlayAction value={imageStoredValue} onChange={handleImageChange} disabled={isImported} />
+              </View>
               <ThemedText type="title" style={styles.title}>
                 {currentRecipe.name}
               </ThemedText>
@@ -403,7 +406,6 @@ export default function RecipeDetailScreen() {
               enabled={!isImported}
             />
             <FormField label="Doses" value={form.servings} onChangeText={(servings) => setForm((current) => (current ? { ...current, servings } : current))} keyboardType="numeric" editable={!isImported} />
-            {!isImported ? <RecipeImagePicker value={imageUri} onChange={setImageUri} /> : null}
             <StepFields steps={steps} onChange={setSteps} disabled={isImported} />
             <RecipeIngredientFields ingredients={ingredientDrafts} catalog={catalog} onChange={setIngredientDrafts} disabled={isImported} />
           </SectionCard>
@@ -458,6 +460,11 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: Spacing.two,
+  },
+  heroImageFrame: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 14,
   },
   title: {
     fontSize: 32,

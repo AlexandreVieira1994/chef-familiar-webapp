@@ -461,22 +461,13 @@ export async function createRecipeWithDetails({
   ingredients: RecipeIngredientInput[];
   imageUri?: string | null;
 }) {
-  let uploadedImagePath: string | null = null;
   let createdRecipeId: string | null = null;
 
   try {
-    let imageUrl = recipe.image_url ?? null;
-
-    if (imageUri) {
-      const uploaded = await uploadRecipeImage(imageUri);
-      uploadedImagePath = uploaded.path;
-      imageUrl = uploaded.publicUrl;
-    }
-
     const [createdRecipe] =
       (await upsertRecipe({
         ...recipe,
-        image_url: imageUrl,
+        image_url: imageUri ?? recipe.image_url ?? null,
         source_type: 'criada',
         source_url: null,
       })) ?? [];
@@ -509,10 +500,6 @@ export async function createRecipeWithDetails({
 
     if (createdRecipeId) {
       await runQuery<null>(client.from('recipes').delete().eq('id', createdRecipeId)).catch(() => null);
-    }
-
-    if (uploadedImagePath) {
-      await deleteRecipeImage(uploadedImagePath).catch(() => null);
     }
 
     throw error;
