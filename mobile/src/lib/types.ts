@@ -5,6 +5,8 @@ export type RecipeStatus =
   | 'a_melhorar'
   | 'rejeitada';
 
+export type RecipeSourceType = 'manual' | 'importada';
+
 export type MealSlot = 'pequeno-almoco' | 'almoco' | 'lanche' | 'jantar';
 
 export type ShoppingItemStatus = 'nao_comprado' | 'comprado';
@@ -25,7 +27,8 @@ export type Recipe = {
   last_feedback_at: string | null;
   feedback_history: unknown[];
   image_url: string | null;
-  source_url: string;
+  source_type: RecipeSourceType;
+  source_url: string | null;
   created_at: string;
 };
 
@@ -134,7 +137,19 @@ export type RecipeUpsertInput = {
   cost_level?: string | null;
   notes?: string | null;
   image_url?: string | null;
-  source_url: string;
+  source_type?: RecipeSourceType;
+  source_url?: string | null;
+};
+
+export type RecipeIngredientInput = {
+  id?: string;
+  recipe_id: string;
+  ingredient_name: string;
+  quantity?: number | null;
+  unit?: string | null;
+  category?: string | null;
+  optional?: boolean;
+  image_url?: string | null;
 };
 
 export type InventoryEntryInput = {

@@ -18,9 +18,17 @@ alter table recipes add column if not exists last_feedback_at timestamptz;
 alter table recipes add column if not exists feedback_history jsonb not null default '[]'::jsonb;
 alter table recipes add column if not exists image_url text;
 alter table recipes add column if not exists source_url text;
-alter table recipes alter column source_url set not null;
+alter table recipes add column if not exists source_type text not null default 'manual';
+update recipes set source_type = 'importada' where nullif(trim(source_url), '') is not null;
+alter table recipes alter column source_url drop not null;
 alter table recipes drop constraint if exists recipes_source_url_required;
-alter table recipes add constraint recipes_source_url_required check (source_url ~* '^https?://');
+alter table recipes drop constraint if exists recipes_source_type_valid;
+alter table recipes drop constraint if exists recipes_source_url_valid;
+alter table recipes add constraint recipes_source_type_valid check (source_type in ('manual', 'importada'));
+alter table recipes add constraint recipes_source_url_valid check (
+  (source_type = 'manual' and (source_url is null or source_url ~* '^https?://'))
+  or (source_type = 'importada' and source_url ~* '^https?://')
+);
 
 create table if not exists recipe_ingredients (
   id uuid primary key default gen_random_uuid(),
@@ -129,6 +137,8 @@ drop policy if exists "public insert recipes" on recipes;
 drop policy if exists "public update recipes" on recipes;
 drop policy if exists "public read recipe ingredients" on recipe_ingredients;
 drop policy if exists "public insert recipe ingredients" on recipe_ingredients;
+drop policy if exists "public update recipe ingredients" on recipe_ingredients;
+drop policy if exists "public delete recipe ingredients" on recipe_ingredients;
 drop policy if exists "public read inventory" on inventory_entries;
 drop policy if exists "public insert inventory" on inventory_entries;
 drop policy if exists "public update inventory" on inventory_entries;
@@ -157,6 +167,8 @@ create policy "public insert recipes" on recipes for insert with check (true);
 create policy "public update recipes" on recipes for update using (true) with check (true);
 create policy "public read recipe ingredients" on recipe_ingredients for select using (true);
 create policy "public insert recipe ingredients" on recipe_ingredients for insert with check (true);
+create policy "public update recipe ingredients" on recipe_ingredients for update using (true) with check (true);
+create policy "public delete recipe ingredients" on recipe_ingredients for delete using (true);
 create policy "public read inventory" on inventory_entries for select using (true);
 create policy "public insert inventory" on inventory_entries for insert with check (true);
 create policy "public update inventory" on inventory_entries for update using (true) with check (true);

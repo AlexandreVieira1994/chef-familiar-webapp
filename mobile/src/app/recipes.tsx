@@ -19,10 +19,10 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
-import { recipeStatusOptions } from '@/lib/options';
+import { recipeSourceTypeOptions, recipeStatusOptions } from '@/lib/options';
 import { sanitizeOptionalText } from '@/lib/format';
 import { listRecipes, upsertRecipe } from '@/lib/services';
-import { RecipeStatus, RecipeUpsertInput } from '@/lib/types';
+import { RecipeSourceType, RecipeStatus, RecipeUpsertInput } from '@/lib/types';
 
 function createEmptyForm(): RecipeUpsertInput {
   return {
@@ -35,6 +35,7 @@ function createEmptyForm(): RecipeUpsertInput {
     cost_level: '',
     notes: '',
     image_url: '',
+    source_type: 'manual',
     source_url: '',
   };
 }
@@ -58,25 +59,34 @@ export default function RecipesScreen() {
   const sortedStatuses = useMemo(() => recipeStatusOptions, []);
 
   async function handleCreateRecipe() {
-    if (!form.code.trim() || !form.name.trim() || !form.category.trim() || !form.source_url.trim()) {
-      Alert.alert('Campos em falta', 'Preenche pelo menos código, nome, categoria e source_url.');
+    if (!form.code.trim() || !form.name.trim() || !form.category.trim()) {
+      Alert.alert('Campos em falta', 'Preenche pelo menos código, nome e categoria.');
+      return;
+    }
+
+    if (form.source_type === 'importada' && !form.source_url?.trim()) {
+      Alert.alert('Fonte em falta', 'Receitas importadas precisam de um URL de origem.');
       return;
     }
 
     setSaving(true);
 
     try {
-      await upsertRecipe({
+      const [createdRecipe] = (await upsertRecipe({
         ...form,
         cost_level: sanitizeOptionalText(form.cost_level ?? ''),
         notes: sanitizeOptionalText(form.notes ?? ''),
         image_url: sanitizeOptionalText(form.image_url ?? ''),
-        source_url: form.source_url.trim(),
-      });
+        source_type: form.source_type ?? 'manual',
+        source_url: sanitizeOptionalText(form.source_url ?? ''),
+      })) ?? [];
 
       setFormVisible(false);
       setForm(createEmptyForm());
       await recipes.reload();
+      if (createdRecipe) {
+        router.push(`/recipes/${createdRecipe.id}` as never);
+      }
     } catch (error) {
       Alert.alert('Erro ao criar receita', error instanceof Error ? error.message : 'Tenta novamente.');
     } finally {
@@ -129,7 +139,7 @@ export default function RecipesScreen() {
             onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
             <ListRow
               title={recipe.name}
-              subtitle={`${recipe.code} · ${recipe.category}${recipe.cost_level ? ` · ${recipe.cost_level}` : ''}`}
+              subtitle={`${recipe.code} · ${recipe.category} · ${recipe.source_type}${recipe.cost_level ? ` · ${recipe.cost_level}` : ''}`}
               accessory={<Tag>{recipe.status}</Tag>}
             />
           </Pressable>
@@ -150,9 +160,15 @@ export default function RecipesScreen() {
           options={sortedStatuses}
           onChange={(status) => setForm((current) => ({ ...current, status }))}
         />
+        <ChipSelector<RecipeSourceType>
+          label="Origem"
+          value={form.source_type ?? 'manual'}
+          options={recipeSourceTypeOptions}
+          onChange={(source_type) => setForm((current) => ({ ...current, source_type }))}
+        />
         <FormField label="Custo" value={form.cost_level ?? ''} onChangeText={(cost_level) => setForm((current) => ({ ...current, cost_level }))} placeholder="economico, medio..." />
         <FormField label="Imagem" value={form.image_url ?? ''} onChangeText={(image_url) => setForm((current) => ({ ...current, image_url }))} placeholder="https://..." keyboardType="url" />
-        <FormField label="Fonte" value={form.source_url} onChangeText={(source_url) => setForm((current) => ({ ...current, source_url }))} placeholder="https://..." keyboardType="url" />
+        <FormField label="Fonte" value={form.source_url ?? ''} onChangeText={(source_url) => setForm((current) => ({ ...current, source_url }))} placeholder="https://..." keyboardType="url" />
         <FormField label="Notas" value={form.notes ?? ''} onChangeText={(notes) => setForm((current) => ({ ...current, notes }))} placeholder="Passos, observações, adaptações..." multiline />
       </FormModal>
     </AppScreen>

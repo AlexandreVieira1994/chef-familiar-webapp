@@ -9,6 +9,7 @@ import {
   MealPlanEntryInput,
   MealPlanEntryWithRecipe,
   Recipe,
+  RecipeIngredientInput,
   RecipeIngredient,
   RecipeUpsertInput,
   ShoppingList,
@@ -42,7 +43,7 @@ export async function listRecipes() {
       client
         .from('recipes')
         .select(
-          'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_url, created_at',
+          'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
         )
         .order('code', { ascending: true }),
     )) ?? []
@@ -57,7 +58,7 @@ export async function getRecipe(id: string) {
       client
         .from('recipes')
         .select(
-          'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_url, created_at',
+          'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
         )
         .eq('id', id)
         .maybeSingle(),
@@ -79,8 +80,46 @@ export async function listRecipeIngredients(recipeId: string) {
   );
 }
 
+export async function upsertRecipeIngredient(input: RecipeIngredientInput) {
+  const client = getClient();
+  const payload = {
+    recipe_id: input.recipe_id,
+    ingredient_name: input.ingredient_name.trim(),
+    quantity: input.quantity ?? null,
+    unit: input.unit ?? null,
+    category: input.category ?? null,
+    optional: input.optional ?? false,
+    image_url: input.image_url ?? null,
+  };
+
+  if (input.id) {
+    return runQuery<RecipeIngredient[]>(
+      client
+        .from('recipe_ingredients')
+        .update(payload)
+        .eq('id', input.id)
+        .select('id, recipe_id, ingredient_name, quantity, unit, category, optional, image_url, created_at'),
+    );
+  }
+
+  return runQuery<RecipeIngredient[]>(
+    client
+      .from('recipe_ingredients')
+      .insert(payload)
+      .select('id, recipe_id, ingredient_name, quantity, unit, category, optional, image_url, created_at'),
+  );
+}
+
+export async function deleteRecipeIngredient(id: string) {
+  const client = getClient();
+
+  await runQuery<null>(client.from('recipe_ingredients').delete().eq('id', id));
+}
+
 export async function upsertRecipe(input: RecipeUpsertInput) {
   const client = getClient();
+  const sourceType = input.source_type ?? 'manual';
+  const sourceUrl = input.source_url?.trim() ? input.source_url.trim() : null;
   const payload = {
     code: input.code.trim(),
     name: input.name.trim(),
@@ -91,20 +130,21 @@ export async function upsertRecipe(input: RecipeUpsertInput) {
     cost_level: input.cost_level ?? null,
     notes: input.notes ?? null,
     image_url: input.image_url ?? null,
-    source_url: input.source_url.trim(),
+    source_type: sourceType,
+    source_url: sourceUrl,
   };
 
   if (input.id) {
     return runQuery<Recipe[]>(
       client.from('recipes').update(payload).eq('id', input.id).select(
-        'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_url, created_at',
+        'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
       ),
     );
   }
 
   return runQuery<Recipe[]>(
     client.from('recipes').insert(payload).select(
-      'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_url, created_at',
+      'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
     ),
   );
 }
