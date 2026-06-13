@@ -52,6 +52,15 @@ Regras de dados
 
 Entidades principais previstas:
 
+* Receita: prato registado manualmente ou importado da internet, com categoria, estado, tempos, notas, imagem e origem.
+* Ingrediente da receita: ingrediente associado a uma receita, com quantidade, unidade, categoria e indicação de opcional.
+* Plano de receitas: conjunto de refeições planeadas para um período definido pelo utilizador.
+* Refeição planeada: ligação entre uma data, um momento da refeição e uma receita.
+* Lista de compras: lista gerada a partir do plano ou editada manualmente, com estado e período.
+* Item da lista de compras: produto/ingrediente a comprar, com quantidade prevista, unidade, estado de compra e quantidade confirmada.
+* Entrada de inventário: lote de ingrediente/produto disponível, com quantidade inicial, quantidade restante, unidade, origem, local de armazenamento e data de validade.
+* Regra familiar: intolerância, preferência alimentar, instrução ou restrição usada para orientar planos e sugestões.
+* Feedback de receita: avaliação ou notas depois de experimentar uma receita, para decidir se deve ser repetida, melhorada ou rejeitada.
 
 Notas:
 
