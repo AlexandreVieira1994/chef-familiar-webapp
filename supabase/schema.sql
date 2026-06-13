@@ -34,6 +34,10 @@ set dish_type = category,
     category = 'Outro'
 where category in ('Sopa', 'Entrada', 'Sobremesa')
   and dish_type = 'Prato principal';
+update recipes
+set feedback_notes = notes
+where feedback_notes is null
+  and notes is not null;
 alter table recipes alter column source_url drop not null;
 alter table recipes alter column source_type set default 'criada';
 alter table recipes add constraint recipes_source_type_valid check (source_type in ('criada', 'importada'));
@@ -159,6 +163,39 @@ create table if not exists assistant_action_logs (
   created_at timestamptz not null default now()
 );
 
+create or replace function public.prevent_imported_recipe_content_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.source_type = 'importada'
+    and (
+      new.code is distinct from old.code
+      or new.name is distinct from old.name
+      or new.category is distinct from old.category
+      or new.dish_type is distinct from old.dish_type
+      or new.prep_time_min is distinct from old.prep_time_min
+      or new.cook_time_min is distinct from old.cook_time_min
+      or new.cost_level is distinct from old.cost_level
+      or new.servings is distinct from old.servings
+      or new.image_url is distinct from old.image_url
+      or new.source_type is distinct from old.source_type
+      or new.source_url is distinct from old.source_url
+    )
+  then
+    raise exception 'Receitas importadas só permitem alterar feedback.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_imported_recipe_content_update on public.recipes;
+create trigger prevent_imported_recipe_content_update
+  before update on public.recipes
+  for each row
+  execute function public.prevent_imported_recipe_content_update();
+
 alter table recipes enable row level security;
 alter table ingredients enable row level security;
 alter table recipe_ingredients enable row level security;
@@ -213,7 +250,7 @@ drop policy if exists "public update assistant logs" on assistant_action_logs;
 
 create policy "public read recipes" on recipes for select using (true);
 create policy "public insert recipes" on recipes for insert with check (source_type = 'criada');
-create policy "public update recipes" on recipes for update using (source_type = 'criada') with check (source_type = 'criada');
+create policy "public update recipes" on recipes for update using (true) with check (true);
 create policy "public delete recipes" on recipes for delete using (source_type = 'criada');
 create policy "public read ingredients" on ingredients for select using (true);
 create policy "public insert ingredients" on ingredients for insert with check (true);

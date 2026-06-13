@@ -10,8 +10,10 @@ import {
   MealPlanEntryInput,
   MealPlanEntryWithRecipe,
   Recipe,
+  RecipeFeedback,
   RecipeIngredientInput,
   RecipeIngredient,
+  RecipeStatus,
   RecipeStep,
   RecipeStepInput,
   RecipeUpsertInput,
@@ -25,6 +27,7 @@ const recipeSelect =
 const recipeIngredientSelect =
   'id, recipe_id, ingredient_id, ingredient_name, quantity, unit, category, optional, image_url, created_at';
 const recipeStepSelect = 'id, recipe_id, position, description, created_at';
+const recipeFeedbackSelect = 'id, recipe_id, status, rating, notes, created_at';
 const mealPlanSelect = 'id, planned_date, meal_slot, recipe_id, servings_needed, notes, created_at';
 
 function getClient() {
@@ -109,6 +112,20 @@ export async function listRecipeSteps(recipeId: string) {
         .select(recipeStepSelect)
         .eq('recipe_id', recipeId)
         .order('position', { ascending: true }),
+    )) ?? []
+  );
+}
+
+export async function listRecipeFeedback(recipeId: string) {
+  const client = getClient();
+
+  return (
+    (await runQuery<RecipeFeedback[]>(
+      client
+        .from('recipe_feedback')
+        .select(recipeFeedbackSelect)
+        .eq('recipe_id', recipeId)
+        .order('created_at', { ascending: false }),
     )) ?? []
   );
 }
@@ -250,6 +267,43 @@ export async function deleteRecipeImage(path: string) {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+export async function updateRecipeFeedback(id: string, status: RecipeStatus, notes: string | null) {
+  const client = getClient();
+  const feedbackEntry = {
+    status,
+    notes,
+    created_at: new Date().toISOString(),
+  };
+  const recipe = await getRecipe(id);
+
+  if (!recipe) {
+    throw new Error('Receita não encontrada.');
+  }
+
+  await runQuery(
+    client
+      .from('recipe_feedback')
+      .insert({
+        recipe_id: id,
+        status,
+        notes,
+      }),
+  );
+
+  return runQuery<Recipe[]>(
+    client
+      .from('recipes')
+      .update({
+        status,
+        feedback_notes: notes,
+        last_feedback_at: feedbackEntry.created_at,
+        feedback_history: [...recipe.feedback_history, feedbackEntry],
+      })
+      .eq('id', id)
+      .select(recipeSelect),
+  );
 }
 
 export async function upsertRecipe(input: RecipeUpsertInput) {

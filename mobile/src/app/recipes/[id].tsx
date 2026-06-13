@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -26,6 +25,7 @@ import {
   RecipeStepDraft,
   StepFields,
 } from '@/components/recipe-form-fields';
+import { RecipeImage } from '@/components/recipe-image';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
@@ -34,19 +34,22 @@ import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeS
 import {
   getRecipe,
   listIngredients,
+  listRecipeFeedback,
   listRecipeIngredients,
   listRecipeSteps,
   replaceRecipeIngredients,
   replaceRecipeSteps,
   uploadRecipeImage,
+  updateRecipeFeedback,
   upsertRecipe,
 } from '@/lib/services';
-import { Ingredient, Recipe, RecipeIngredient, RecipeStatus, RecipeStep } from '@/lib/types';
+import { Ingredient, Recipe, RecipeFeedback, RecipeIngredient, RecipeStatus, RecipeStep } from '@/lib/types';
 
 type RecipeDetailData = {
   recipe: Recipe;
   ingredients: RecipeIngredient[];
   steps: RecipeStep[];
+  feedback: RecipeFeedback[];
   catalog: Ingredient[];
 };
 
@@ -57,7 +60,7 @@ type EditRecipeForm = {
   status: RecipeStatus;
   cost_level: string;
   servings: string;
-  notes: string;
+  feedback_notes: string;
   image_url: string | null;
 };
 
@@ -69,7 +72,7 @@ function createEditForm(recipe: Recipe): EditRecipeForm {
     status: recipe.status,
     cost_level: recipe.cost_level ?? '',
     servings: String(recipe.servings),
-    notes: recipe.notes ?? '',
+    feedback_notes: recipe.feedback_notes ?? recipe.notes ?? '',
     image_url: recipe.image_url,
   };
 }
@@ -115,13 +118,14 @@ export default function RecipeDetailScreen() {
       throw new Error('Receita não encontrada.');
     }
 
-    const [ingredients, recipeSteps, catalog] = await Promise.all([
+    const [ingredients, recipeSteps, feedback, catalog] = await Promise.all([
       listRecipeIngredients(recipe.id),
       listRecipeSteps(recipe.id),
+      listRecipeFeedback(recipe.id),
       listIngredients(),
     ]);
 
-    return { recipe, ingredients, steps: recipeSteps, catalog };
+    return { recipe, ingredients, steps: recipeSteps, feedback, catalog };
   }, [id]);
   const recipeDetail = useAsyncResource<RecipeDetailData>(loadRecipeDetail);
 
@@ -139,7 +143,23 @@ export default function RecipeDetailScreen() {
   }, [recipeDetail.data]);
 
   async function handleSave() {
-    if (!currentRecipe || !form || isImported) return;
+    if (!currentRecipe || !form) return;
+
+    if (isImported) {
+      setSaving(true);
+
+      try {
+        await updateRecipeFeedback(currentRecipe.id, form.status, sanitizeOptionalText(form.feedback_notes));
+        await recipeDetail.reload();
+        Alert.alert('Feedback atualizado', 'O feedback da receita foi guardado.');
+      } catch (error) {
+        Alert.alert('Erro ao guardar feedback', error instanceof Error ? error.message : 'Tenta novamente.');
+      } finally {
+        setSaving(false);
+      }
+
+      return;
+    }
 
     const servings = parseOptionalNumber(form.servings);
     const validSteps = steps.filter((step) => step.description.trim().length > 0);
@@ -190,12 +210,13 @@ export default function RecipeDetailScreen() {
         prep_time_min: currentRecipe.prep_time_min,
         cook_time_min: currentRecipe.cook_time_min,
         cost_level: sanitizeOptionalText(form.cost_level),
-        notes: sanitizeOptionalText(form.notes),
+        notes: currentRecipe.notes,
         servings,
         image_url: imageUrl,
         source_type: 'criada',
         source_url: null,
       });
+      await updateRecipeFeedback(currentRecipe.id, form.status, sanitizeOptionalText(form.feedback_notes));
       await replaceRecipeSteps(
         currentRecipe.id,
         validSteps.map((step, index) => ({
@@ -235,7 +256,12 @@ export default function RecipeDetailScreen() {
           <SectionHeader>Resumo</SectionHeader>
           <SectionCard>
             <View style={styles.header}>
-              {currentRecipe.image_url ? <Image source={{ uri: currentRecipe.image_url }} style={styles.heroImage} contentFit="cover" /> : null}
+              <RecipeImage
+                uri={currentRecipe.image_url}
+                title={currentRecipe.name}
+                subtitle={`${currentRecipe.category} · ${currentRecipe.dish_type}`}
+                variant="hero"
+              />
               <ThemedText type="title" style={styles.title}>
                 {currentRecipe.name}
               </ThemedText>
@@ -257,7 +283,32 @@ export default function RecipeDetailScreen() {
             </View>
           </SectionCard>
 
-          <SectionHeader>{isImported ? 'Dados' : 'Editar'}</SectionHeader>
+          <SectionHeader>Feedback</SectionHeader>
+          <SectionCard>
+            <SelectField<RecipeStatus>
+              label="Estado"
+              value={form.status}
+              options={recipeStatusOptions}
+              onChange={(status) => setForm((current) => (current ? { ...current, status } : current))}
+              enabled
+            />
+            <FormField
+              label="Notas"
+              value={form.feedback_notes}
+              onChangeText={(feedback_notes) => setForm((current) => (current ? { ...current, feedback_notes } : current))}
+              multiline
+              editable
+            />
+            <ButtonRow>
+              <AppButton
+                label={saving ? 'A guardar...' : 'Guardar feedback'}
+                onPress={() => void handleSave()}
+                disabled={saving}
+              />
+            </ButtonRow>
+          </SectionCard>
+
+          <SectionHeader>Dados</SectionHeader>
           <SectionCard>
             {isImported ? (
               <ThemedText themeColor="textSecondary" style={styles.paragraph}>
@@ -279,13 +330,6 @@ export default function RecipeDetailScreen() {
               onChange={(dish_type) => setForm((current) => (current ? { ...current, dish_type } : current))}
               enabled={!isImported}
             />
-            <SelectField<RecipeStatus>
-              label="Estado"
-              value={form.status}
-              options={recipeStatusOptions}
-              onChange={(status) => setForm((current) => (current ? { ...current, status } : current))}
-              enabled={!isImported}
-            />
             <SelectField
               label="Custo"
               value={form.cost_level}
@@ -297,18 +341,6 @@ export default function RecipeDetailScreen() {
             {!isImported ? <RecipeImagePicker value={imageUri} onChange={setImageUri} /> : null}
             <StepFields steps={steps} onChange={setSteps} disabled={isImported} />
             <RecipeIngredientFields ingredients={ingredientDrafts} catalog={catalog} onChange={setIngredientDrafts} disabled={isImported} />
-            <FormField
-              label="Notas"
-              value={form.notes}
-              onChangeText={(notes) => setForm((current) => (current ? { ...current, notes } : current))}
-              multiline
-              editable={!isImported}
-            />
-            {!isImported ? (
-              <ButtonRow>
-                <AppButton label={saving ? 'A guardar...' : 'Guardar'} onPress={() => void handleSave()} disabled={saving} />
-              </ButtonRow>
-            ) : null}
           </SectionCard>
 
           <SectionHeader>Ingredientes atuais</SectionHeader>
@@ -328,8 +360,23 @@ export default function RecipeDetailScreen() {
           <SectionHeader>Histórico</SectionHeader>
           <SectionCard>
             <LabeledValue label="Criada" value={formatDateTime(currentRecipe.created_at)} />
-            <LabeledValue label="Último feedback" value={formatDateTime(currentRecipe.last_feedback_at)} />
-            <LabeledValue label="Notas de feedback" value={currentRecipe.feedback_notes || 'Sem feedback.'} />
+            {recipeDetail.data?.feedback.length ? (
+              recipeDetail.data.feedback.map((feedback) => (
+                <View key={feedback.id} style={styles.feedbackRow}>
+                  <View style={styles.feedbackHeader}>
+                    <ThemedText type="smallBold" themeColor="textSecondary">
+                      {formatDateTime(feedback.created_at)}
+                    </ThemedText>
+                    <Tag>{feedback.status}</Tag>
+                  </View>
+                  <ThemedText themeColor={feedback.notes ? 'text' : 'textSecondary'} style={styles.paragraph}>
+                    {feedback.notes || 'Sem notas.'}
+                  </ThemedText>
+                </View>
+              ))
+            ) : (
+              <ThemedText themeColor="textSecondary">Ainda não existem feedbacks registados.</ThemedText>
+            )}
           </SectionCard>
         </>
       ) : null}
@@ -344,11 +391,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     lineHeight: 38,
-  },
-  heroImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: 14,
   },
   tags: {
     flexDirection: 'row',
@@ -365,6 +407,17 @@ const styles = StyleSheet.create({
   ingredientRow: {
     gap: 2,
     paddingVertical: Spacing.two,
+  },
+  feedbackRow: {
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+  },
+  feedbackHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
   },
   pressed: {
     opacity: 0.7,

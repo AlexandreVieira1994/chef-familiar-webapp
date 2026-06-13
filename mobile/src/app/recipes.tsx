@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
@@ -25,6 +24,7 @@ import {
   RecipeStepDraft,
   StepFields,
 } from '@/components/recipe-form-fields';
+import { RecipeImage } from '@/components/recipe-image';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
@@ -203,13 +203,7 @@ export default function RecipesScreen() {
             style={({ pressed }) => [styles.recipeRow, pressed && styles.pressed]}
             onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
             <View style={styles.thumbnailShell}>
-              {recipe.image_url ? (
-                <Image source={{ uri: recipe.image_url }} style={styles.thumbnail} contentFit="cover" />
-              ) : (
-                <ThemedText themeColor="textSecondary" style={styles.thumbnailFallback}>
-                  Sem imagem
-                </ThemedText>
-              )}
+              <RecipeImage uri={recipe.image_url} title={recipe.name} subtitle={recipe.category} variant="thumbnail" />
             </View>
             <View style={styles.recipeText}>
               <ThemedText style={styles.recipeTitle}>{recipe.name}</ThemedText>
@@ -298,16 +292,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(120, 120, 128, 0.16)',
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  thumbnailFallback: {
-    fontSize: 11,
-    lineHeight: 14,
-    textAlign: 'center',
-    paddingHorizontal: 4,
   },
   recipeText: {
     flex: 1,

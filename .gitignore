@@ -27,3 +27,4 @@ mobile/ios/
 mobile/android/
 
 *.tsbuildinfo
+supabase/.temp/

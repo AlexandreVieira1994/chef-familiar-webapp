@@ -63,6 +63,15 @@ export type RecipeStep = {
   created_at: string;
 };
 
+export type RecipeFeedback = {
+  id: string;
+  recipe_id: string;
+  status: RecipeStatus;
+  rating: number | null;
+  notes: string | null;
+  created_at: string;
+};
+
 export type InventoryEntry = {
   id: string;
   entry_date: string;
