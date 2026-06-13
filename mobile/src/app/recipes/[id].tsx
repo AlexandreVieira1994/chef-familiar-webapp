@@ -30,7 +30,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
 import { formatDateTime, formatQuantity, parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
-import { costLevelOptions, recipeCategoryOptions, recipeStatusOptions, unitOptions } from '@/lib/options';
+import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeStatusOptions, unitOptions } from '@/lib/options';
 import {
   getRecipe,
   listIngredients,
@@ -53,6 +53,7 @@ type RecipeDetailData = {
 type EditRecipeForm = {
   name: string;
   category: string;
+  dish_type: string;
   status: RecipeStatus;
   cost_level: string;
   servings: string;
@@ -64,6 +65,7 @@ function createEditForm(recipe: Recipe): EditRecipeForm {
   return {
     name: recipe.name,
     category: recipe.category,
+    dish_type: recipe.dish_type,
     status: recipe.status,
     cost_level: recipe.cost_level ?? '',
     servings: String(recipe.servings),
@@ -183,6 +185,7 @@ export default function RecipeDetailScreen() {
         code: currentRecipe.code,
         name: form.name,
         category: form.category,
+        dish_type: form.dish_type,
         status: form.status,
         prep_time_min: currentRecipe.prep_time_min,
         cook_time_min: currentRecipe.cook_time_min,
@@ -238,6 +241,7 @@ export default function RecipeDetailScreen() {
               </ThemedText>
               <View style={styles.tags}>
                 <Tag>{currentRecipe.category}</Tag>
+                <Tag>{currentRecipe.dish_type}</Tag>
                 <Tag>{currentRecipe.status}</Tag>
                 <Tag>{currentRecipe.source_type}</Tag>
                 <Tag>{currentRecipe.servings} doses</Tag>
@@ -262,10 +266,17 @@ export default function RecipeDetailScreen() {
             ) : null}
             <FormField label="Nome" value={form.name} onChangeText={(name) => setForm((current) => (current ? { ...current, name } : current))} editable={!isImported} />
             <SelectField
-              label="Categoria"
+              label="Categoria alimentar"
               value={form.category}
               options={recipeCategoryOptions.some((option) => option.value === form.category) ? recipeCategoryOptions : [...recipeCategoryOptions, { label: form.category, value: form.category }]}
               onChange={(category) => setForm((current) => (current ? { ...current, category } : current))}
+              enabled={!isImported}
+            />
+            <SelectField
+              label="Tipo de prato"
+              value={form.dish_type}
+              options={recipeDishTypeOptions.some((option) => option.value === form.dish_type) ? recipeDishTypeOptions : [...recipeDishTypeOptions, { label: form.dish_type, value: form.dish_type }]}
+              onChange={(dish_type) => setForm((current) => (current ? { ...current, dish_type } : current))}
               enabled={!isImported}
             />
             <SelectField<RecipeStatus>

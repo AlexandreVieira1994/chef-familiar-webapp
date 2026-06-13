@@ -5,6 +5,7 @@ create table if not exists recipes (
   code text unique not null,
   name text not null,
   category text not null,
+  dish_type text not null default 'Prato principal',
   status text not null default 'por_testar',
   prep_time_min integer,
   cook_time_min integer,
@@ -21,12 +22,18 @@ alter table recipes add column if not exists image_url text;
 alter table recipes add column if not exists source_url text;
 alter table recipes add column if not exists source_type text not null default 'criada';
 alter table recipes add column if not exists servings integer not null default 4;
+alter table recipes add column if not exists dish_type text not null default 'Prato principal';
 alter table recipes drop constraint if exists recipes_source_url_required;
 alter table recipes drop constraint if exists recipes_source_type_valid;
 alter table recipes drop constraint if exists recipes_source_url_valid;
 alter table recipes drop constraint if exists recipes_servings_positive;
 update recipes set source_type = 'importada' where nullif(trim(source_url), '') is not null;
 update recipes set source_type = 'criada' where source_type = 'manual';
+update recipes
+set dish_type = category,
+    category = 'Outro'
+where category in ('Sopa', 'Entrada', 'Sobremesa')
+  and dish_type = 'Prato principal';
 alter table recipes alter column source_url drop not null;
 alter table recipes alter column source_type set default 'criada';
 alter table recipes add constraint recipes_source_type_valid check (source_type in ('criada', 'importada'));

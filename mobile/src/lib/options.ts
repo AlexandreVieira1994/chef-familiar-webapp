@@ -17,9 +17,22 @@ export const recipeCategoryOptions = [
   { label: 'Carne', value: 'Carne' },
   { label: 'Peixe', value: 'Peixe' },
   { label: 'Vegetariano', value: 'Vegetariano' },
+  { label: 'Vegan', value: 'Vegan' },
+  { label: 'Marisco', value: 'Marisco' },
+  { label: 'Ovos', value: 'Ovos' },
+  { label: 'Mista', value: 'Mista' },
+  { label: 'Outro', value: 'Outro' },
+];
+
+export const recipeDishTypeOptions = [
+  { label: 'Prato principal', value: 'Prato principal' },
   { label: 'Sopa', value: 'Sopa' },
   { label: 'Entrada', value: 'Entrada' },
   { label: 'Sobremesa', value: 'Sobremesa' },
+  { label: 'Acompanhamento', value: 'Acompanhamento' },
+  { label: 'Pequeno-almoço', value: 'Pequeno-almoço' },
+  { label: 'Lanche', value: 'Lanche' },
+  { label: 'Bebida', value: 'Bebida' },
   { label: 'Outro', value: 'Outro' },
 ];
 

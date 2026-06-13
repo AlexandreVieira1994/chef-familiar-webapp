@@ -29,7 +29,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
 import { parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
-import { costLevelOptions, recipeCategoryOptions, recipeStatusOptions } from '@/lib/options';
+import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeStatusOptions } from '@/lib/options';
 import { createRecipeWithDetails, listIngredients, listRecipes } from '@/lib/services';
 import { Ingredient, Recipe, RecipeStatus } from '@/lib/types';
 
@@ -41,6 +41,7 @@ type RecipesData = {
 type CreateRecipeForm = {
   name: string;
   category: string;
+  dish_type: string;
   status: RecipeStatus;
   cost_level: string;
   servings: string;
@@ -55,6 +56,7 @@ function createEmptyForm(): CreateRecipeForm {
   return {
     name: '',
     category: recipeCategoryOptions[0].value,
+    dish_type: recipeDishTypeOptions[0].value,
     status: 'por_testar',
     cost_level: '',
     servings: '4',
@@ -136,6 +138,7 @@ export default function RecipesScreen() {
           code: createInternalRecipeCode(),
           name: form.name,
           category: form.category,
+          dish_type: form.dish_type,
           status: form.status,
           cost_level: sanitizeOptionalText(form.cost_level),
           notes: sanitizeOptionalText(form.notes),
@@ -211,7 +214,7 @@ export default function RecipesScreen() {
             <View style={styles.recipeText}>
               <ThemedText style={styles.recipeTitle}>{recipe.name}</ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.recipeSubtitle}>
-                {recipe.category} · {recipe.servings} doses
+                {recipe.category} · {recipe.dish_type} · {recipe.servings} doses
               </ThemedText>
               <View style={styles.tags}>
                 <Tag>{recipe.source_type}</Tag>
@@ -230,10 +233,16 @@ export default function RecipesScreen() {
         footer={<AppButton label={saving ? 'A guardar...' : 'Guardar receita'} onPress={() => void handleCreateRecipe()} disabled={saving} />}>
         <FormField label="Nome" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} placeholder="Nome da receita" />
         <SelectField
-          label="Categoria"
+          label="Categoria alimentar"
           value={form.category}
           options={recipeCategoryOptions}
           onChange={(category) => setForm((current) => ({ ...current, category }))}
+        />
+        <SelectField
+          label="Tipo de prato"
+          value={form.dish_type}
+          options={recipeDishTypeOptions}
+          onChange={(dish_type) => setForm((current) => ({ ...current, dish_type }))}
         />
         <SelectField<RecipeStatus>
           label="Estado"

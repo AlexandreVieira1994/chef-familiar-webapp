@@ -21,7 +21,7 @@ import {
 } from '@/lib/types';
 
 const recipeSelect =
-  'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, servings, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at';
+  'id, code, name, category, dish_type, status, prep_time_min, cook_time_min, cost_level, notes, servings, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at';
 const recipeIngredientSelect =
   'id, recipe_id, ingredient_id, ingredient_name, quantity, unit, category, optional, image_url, created_at';
 const recipeStepSelect = 'id, recipe_id, position, description, created_at';
@@ -260,6 +260,7 @@ export async function upsertRecipe(input: RecipeUpsertInput) {
     code: input.code.trim(),
     name: input.name.trim(),
     category: input.category.trim(),
+    dish_type: input.dish_type ?? 'Prato principal',
     status: input.status,
     prep_time_min: input.prep_time_min ?? null,
     cook_time_min: input.cook_time_min ?? null,
@@ -485,6 +486,7 @@ export async function listMealPlanEntries() {
           code: recipesById.get(entry.recipe_id)!.code,
           name: recipesById.get(entry.recipe_id)!.name,
           category: recipesById.get(entry.recipe_id)!.category,
+          dish_type: recipesById.get(entry.recipe_id)!.dish_type,
           status: recipesById.get(entry.recipe_id)!.status,
           servings: recipesById.get(entry.recipe_id)!.servings,
         }

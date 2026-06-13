@@ -18,6 +18,7 @@ export type Recipe = {
   code: string;
   name: string;
   category: string;
+  dish_type: string;
   status: RecipeStatus;
   prep_time_min: number | null;
   cook_time_min: number | null;
@@ -118,7 +119,7 @@ export type MealPlanEntry = {
 };
 
 export type MealPlanEntryWithRecipe = MealPlanEntry & {
-  recipe: Pick<Recipe, 'id' | 'code' | 'name' | 'category' | 'status' | 'servings'> | null;
+  recipe: Pick<Recipe, 'id' | 'code' | 'name' | 'category' | 'dish_type' | 'status' | 'servings'> | null;
 };
 
 export type DashboardSummary = {
@@ -150,6 +151,7 @@ export type RecipeUpsertInput = {
   code: string;
   name: string;
   category: string;
+  dish_type?: string;
   status: RecipeStatus;
   prep_time_min?: number | null;
   cook_time_min?: number | null;
