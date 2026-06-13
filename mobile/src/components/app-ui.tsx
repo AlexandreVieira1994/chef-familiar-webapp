@@ -1,5 +1,4 @@
-import { PropsWithChildren, ReactNode } from 'react';
-import { Picker } from '@react-native-picker/picker';
+import { PropsWithChildren, ReactNode, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -184,29 +183,113 @@ export function SelectField<TValue extends string>({
   enabled = true,
 }: SelectFieldProps<TValue>) {
   const theme = useTheme();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [query, setQuery] = useState('');
+  const selectedOption = options.find((option) => option.value === value);
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) return options;
+
+    return options.filter((option) => {
+      const labelMatch = option.label.toLowerCase().includes(normalizedQuery);
+      const valueMatch = option.value.toLowerCase().includes(normalizedQuery);
+
+      return labelMatch || valueMatch;
+    });
+  }, [options, query]);
+
+  function openMenu() {
+    if (!enabled) return;
+
+    setQuery('');
+    setMenuVisible(true);
+  }
+
+  function closeMenu() {
+    setMenuVisible(false);
+    setQuery('');
+  }
+
+  function selectOption(nextValue: TValue) {
+    onChange(nextValue);
+    closeMenu();
+  }
 
   return (
     <View style={styles.fieldGroup}>
       <FieldLabel>{label}</FieldLabel>
-      <View
-        style={[
-          styles.pickerShell,
+      <Pressable
+        disabled={!enabled}
+        onPress={openMenu}
+        style={({ pressed }) => [
+          styles.selectButton,
           {
             borderColor: 'rgba(120, 120, 120, 0.18)',
             backgroundColor: theme.background,
           },
           !enabled && styles.inputDisabled,
+          pressed && enabled && styles.pressed,
         ]}>
-        <Picker
-          enabled={enabled}
-          selectedValue={value}
-          onValueChange={(selectedValue) => onChange(selectedValue)}
-          style={[styles.picker, { color: theme.text }]}>
-          {options.map((option) => (
-            <Picker.Item key={option.value} label={option.label} value={option.value} />
-          ))}
-        </Picker>
-      </View>
+        <ThemedText style={selectedOption ? styles.selectButtonText : [styles.selectButtonText, { color: theme.textSecondary }]}>
+          {selectedOption?.label ?? (value || 'Selecionar')}
+        </ThemedText>
+        <ThemedText style={[styles.selectChevron, { color: theme.textSecondary }]}>⌄</ThemedText>
+      </Pressable>
+
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
+        <View style={styles.floatingMenuRoot}>
+          <Pressable style={styles.floatingBackdrop} onPress={closeMenu} />
+          <View style={[styles.floatingPanel, { backgroundColor: theme.backgroundElement }]}>
+            <View style={styles.floatingHeader}>
+              <ThemedText type="subtitle" style={styles.floatingTitle}>
+                {label}
+              </ThemedText>
+              <InlineButton label="Fechar" onPress={closeMenu} />
+            </View>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Pesquisar"
+              placeholderTextColor={theme.textSecondary}
+              autoFocus
+              style={[
+                styles.searchInput,
+                {
+                  color: theme.text,
+                  borderColor: 'rgba(120, 120, 120, 0.18)',
+                  backgroundColor: theme.background,
+                },
+              ]}
+            />
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.optionList}>
+              {filteredOptions.length ? (
+                filteredOptions.map((option) => {
+                  const selected = option.value === value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => selectOption(option.value)}
+                      style={({ pressed }) => [
+                        styles.optionRow,
+                        { backgroundColor: selected ? theme.backgroundSelected : theme.background },
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText style={styles.optionText}>{option.label}</ThemedText>
+                      {selected ? <Tag>selecionada</Tag> : null}
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <ThemedText themeColor="textSecondary" style={styles.emptySearch}>
+                  Sem opções correspondentes.
+                </ThemedText>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -485,14 +568,81 @@ const styles = StyleSheet.create({
   inputDisabled: {
     opacity: 0.55,
   },
-  pickerShell: {
+  selectButton: {
     minHeight: 44,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 10,
-    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  picker: {
+  selectButtonText: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  selectChevron: {
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  floatingMenuRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  floatingBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+  },
+  floatingPanel: {
+    maxHeight: '74%',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+  },
+  floatingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  floatingTitle: {
+    flex: 1,
+  },
+  searchInput: {
     minHeight: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 16,
+  },
+  optionList: {
+    gap: 8,
+    paddingBottom: 2,
+  },
+  optionRow: {
+    minHeight: 46,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  emptySearch: {
+    paddingVertical: 18,
+    textAlign: 'center',
   },
   chipWrap: {
     flexDirection: 'row',
