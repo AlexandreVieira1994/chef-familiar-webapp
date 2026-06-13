@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
-import { AppButton, ButtonRow, FormField, SelectField, Tag } from '@/components/app-ui';
+import { AppButton, ButtonRow, FormField, SelectField } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { parseOptionalNumber } from '@/lib/format';
@@ -146,7 +146,17 @@ export function StepFields({
         Passos
       </ThemedText>
       {steps.map((step, index) => (
-        <View key={step.id ?? `step-${index}`} style={styles.subField}>
+        <View key={step.id ?? `step-${index}`} style={styles.stepItem}>
+          {!disabled && steps.length > 1 ? (
+            <Pressable
+              accessibilityLabel="Remover passo"
+              onPress={() => onChange(steps.filter((_, currentIndex) => currentIndex !== index))}
+              style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
+              <ThemedText type="smallBold" style={styles.removeButtonText}>
+                X
+              </ThemedText>
+            </Pressable>
+          ) : null}
           <FormField
             label={`Passo ${index + 1}`}
             value={step.description}
@@ -155,16 +165,15 @@ export function StepFields({
             autoGrow
             editable={!disabled}
           />
-          {!disabled && steps.length > 1 ? (
-            <AppButton
-              label="Remover passo"
-              tone="danger"
-              onPress={() => onChange(steps.filter((_, currentIndex) => currentIndex !== index))}
-            />
-          ) : null}
         </View>
       ))}
-      {!disabled ? <AppButton label="Adicionar passo" tone="secondary" onPress={() => onChange([...steps, createEmptyStep()])} /> : null}
+      {!disabled ? (
+        <Pressable onPress={() => onChange([...steps, createEmptyStep()])} style={({ pressed }) => [pressed && styles.pressed]}>
+          <ThemedText type="smallBold" style={styles.addText}>
+            Adicionar passo
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -210,49 +219,62 @@ export function RecipeIngredientFields({
         <ThemedText themeColor="textSecondary">Ainda não existe catálogo de ingredientes.</ThemedText>
       ) : null}
       {ingredients.map((ingredient, index) => (
-        <View key={`ingredient-${index}`} style={styles.ingredientBox}>
-          <View style={styles.rowHeader}>
-            <Tag>{index + 1}</Tag>
-            {ingredient.optional === 'sim' ? <Tag>opcional</Tag> : null}
-          </View>
-          <SelectField
-            label="Ingrediente"
-            value={ingredient.ingredient_id}
-            options={ingredientOptions}
-            onChange={(ingredientId) => selectIngredient(index, ingredientId)}
-            enabled={!disabled && ingredientOptions.length > 0}
-          />
-          <FormField
-            label="Quantidade"
-            value={ingredient.quantity}
-            onChangeText={(quantity) => updateIngredient(index, { ...ingredient, quantity })}
-            keyboardType="numeric"
-            editable={!disabled}
-          />
-          <SelectField
-            label="Unidade"
-            value={ingredient.unit}
-            options={unitOptions.some((option) => option.value === ingredient.unit) ? unitOptions : [...unitOptions, { label: ingredient.unit, value: ingredient.unit }]}
-            onChange={(unit) => updateIngredient(index, { ...ingredient, unit })}
-            enabled={!disabled}
-          />
-          <SelectField
-            label="Opcional"
-            value={ingredient.optional}
-            options={[
-              { label: 'Não', value: 'nao' },
-              { label: 'Sim', value: 'sim' },
-            ]}
-            onChange={(optional) => updateIngredient(index, { ...ingredient, optional })}
-            enabled={!disabled}
-          />
+        <View key={ingredient.id ?? `ingredient-${index}`} style={styles.ingredientItem}>
           {!disabled && ingredients.length > 1 ? (
-            <AppButton
-              label="Remover ingrediente"
-              tone="danger"
+            <Pressable
+              accessibilityLabel="Remover ingrediente"
               onPress={() => onChange(ingredients.filter((_, currentIndex) => currentIndex !== index))}
-            />
+              style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
+              <ThemedText type="smallBold" style={styles.removeButtonText}>
+                X
+              </ThemedText>
+            </Pressable>
           ) : null}
+          <View style={styles.ingredientNameField}>
+            <SelectField
+              label="Ingrediente"
+              value={ingredient.ingredient_id}
+              options={ingredientOptions}
+              onChange={(ingredientId) => selectIngredient(index, ingredientId)}
+              enabled={!disabled && ingredientOptions.length > 0}
+              compact
+            />
+          </View>
+          <View style={styles.ingredientMetaRow}>
+            <View style={styles.ingredientQuantityField}>
+              <FormField
+                label="Qtd."
+                value={ingredient.quantity}
+                onChangeText={(quantity) => updateIngredient(index, { ...ingredient, quantity })}
+                keyboardType="numeric"
+                editable={!disabled}
+                compact
+              />
+            </View>
+            <View style={styles.ingredientUnitField}>
+              <SelectField
+                label="Unidade"
+                value={ingredient.unit}
+                options={unitOptions.some((option) => option.value === ingredient.unit) ? unitOptions : [...unitOptions, { label: ingredient.unit, value: ingredient.unit }]}
+                onChange={(unit) => updateIngredient(index, { ...ingredient, unit })}
+                enabled={!disabled}
+                compact
+              />
+            </View>
+            <View style={styles.ingredientOptionalField}>
+              <SelectField
+                label="Opcional"
+                value={ingredient.optional}
+                options={[
+                  { label: 'Não', value: 'nao' },
+                  { label: 'Sim', value: 'sim' },
+                ]}
+                onChange={(optional) => updateIngredient(index, { ...ingredient, optional })}
+                enabled={!disabled}
+                compact
+              />
+            </View>
+          </View>
         </View>
       ))}
       {!disabled && catalog.length > 0 ? (
@@ -285,15 +307,53 @@ const styles = StyleSheet.create({
   subField: {
     gap: Spacing.two,
   },
-  ingredientBox: {
+  stepItem: {
     gap: Spacing.two,
-    padding: 12,
+    position: 'relative',
+    paddingTop: 4,
+  },
+  ingredientItem: {
+    gap: 6,
+    position: 'relative',
+    paddingHorizontal: 8,
+    paddingVertical: 7,
     borderRadius: 12,
     backgroundColor: 'rgba(120, 120, 128, 0.10)',
   },
-  rowHeader: {
+  ingredientNameField: {
+    width: '100%',
+  },
+  ingredientMetaRow: {
+    alignItems: 'flex-end',
     flexDirection: 'row',
-    gap: Spacing.two,
+    gap: 6,
+  },
+  ingredientQuantityField: {
+    width: 72,
+  },
+  ingredientUnitField: {
+    flex: 1,
+    minWidth: 88,
+  },
+  ingredientOptionalField: {
+    width: 88,
+  },
+  removeButton: {
+    position: 'absolute',
+    right: 4,
+    top: 4,
+    zIndex: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.12)',
+  },
+  removeButtonText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    lineHeight: 14,
   },
   addText: {
     color: '#007AFF',

@@ -117,6 +117,7 @@ type FormFieldProps = {
   placeholder?: string;
   multiline?: boolean;
   autoGrow?: boolean;
+  compact?: boolean;
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'url';
   editable?: boolean;
 };
@@ -128,6 +129,7 @@ export function FormField({
   placeholder,
   multiline,
   autoGrow,
+  compact,
   keyboardType = 'default',
   editable = true,
 }: FormFieldProps) {
@@ -142,7 +144,13 @@ export function FormField({
 
   return (
     <View style={styles.fieldGroup}>
-      <FieldLabel>{label}</FieldLabel>
+      {compact ? (
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.compactFieldLabel}>
+          {label}
+        </ThemedText>
+      ) : (
+        <FieldLabel>{label}</FieldLabel>
+      )}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -155,6 +163,7 @@ export function FormField({
         scrollEnabled={!autoGrow}
         style={[
           styles.input,
+          compact && styles.compactInput,
           multiline && !autoGrow && styles.textArea,
           multiline && autoGrow && styles.autoGrowTextArea,
           autoGrow && { height: autoGrowHeight },
@@ -186,6 +195,7 @@ type SelectFieldProps<TValue extends string> = {
   options: SelectOption<TValue>[];
   onChange: (value: TValue) => void;
   enabled?: boolean;
+  compact?: boolean;
 };
 
 export function SelectField<TValue extends string>({
@@ -194,6 +204,7 @@ export function SelectField<TValue extends string>({
   options,
   onChange,
   enabled = true,
+  compact,
 }: SelectFieldProps<TValue>) {
   const theme = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -231,12 +242,19 @@ export function SelectField<TValue extends string>({
 
   return (
     <View style={styles.fieldGroup}>
-      <FieldLabel>{label}</FieldLabel>
+      {compact ? (
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.compactFieldLabel}>
+          {label}
+        </ThemedText>
+      ) : (
+        <FieldLabel>{label}</FieldLabel>
+      )}
       <Pressable
         disabled={!enabled}
         onPress={openMenu}
         style={({ pressed }) => [
           styles.selectButton,
+          compact && styles.compactSelectButton,
           {
             borderColor: 'rgba(120, 120, 120, 0.18)',
             backgroundColor: theme.background,
@@ -244,10 +262,15 @@ export function SelectField<TValue extends string>({
           !enabled && styles.inputDisabled,
           pressed && enabled && styles.pressed,
         ]}>
-        <ThemedText style={selectedOption ? styles.selectButtonText : [styles.selectButtonText, { color: theme.textSecondary }]}>
+        <ThemedText
+          style={[
+            styles.selectButtonText,
+            compact && styles.compactSelectButtonText,
+            !selectedOption && { color: theme.textSecondary },
+          ]}>
           {selectedOption?.label ?? (value || 'Selecionar')}
         </ThemedText>
-        <ThemedText style={[styles.selectChevron, { color: theme.textSecondary }]}>⌄</ThemedText>
+        <ThemedText style={[styles.selectChevron, compact && styles.compactSelectChevron, { color: theme.textSecondary }]}>⌄</ThemedText>
       </Pressable>
 
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
@@ -565,6 +588,10 @@ const styles = StyleSheet.create({
   fieldGroup: {
     gap: 6,
   },
+  compactFieldLabel: {
+    fontSize: 11,
+    lineHeight: 13,
+  },
   input: {
     minHeight: 44,
     borderWidth: StyleSheet.hairlineWidth,
@@ -573,6 +600,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     backgroundColor: '#FFFFFF',
     fontSize: 16,
+  },
+  compactInput: {
+    minHeight: 36,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontSize: 14,
   },
   textArea: {
     minHeight: 110,
@@ -596,14 +630,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  compactSelectButton: {
+    minHeight: 36,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 6,
+  },
   selectButtonText: {
     flex: 1,
     fontSize: 16,
     lineHeight: 22,
   },
+  compactSelectButtonText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
   selectChevron: {
     fontSize: 18,
     lineHeight: 20,
+  },
+  compactSelectChevron: {
+    fontSize: 15,
+    lineHeight: 18,
   },
   floatingMenuRoot: {
     flex: 1,

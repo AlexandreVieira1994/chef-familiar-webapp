@@ -1,11 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AppButton,
   AppScreen,
-  ButtonRow,
   FormField,
   InfoState,
   LabeledValue,
@@ -29,7 +29,7 @@ import { RecipeImage } from '@/components/recipe-image';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
-import { formatDateTime, formatQuantity, parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
+import { formatDateTime, parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
 import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeStatusOptions, unitOptions } from '@/lib/options';
 import {
   getRecipe,
@@ -129,9 +129,8 @@ function normalizeIngredientDraftsForCompare(ingredients: RecipeIngredientDraft[
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
   const [saving, setSaving] = useState(false);
-  const [savingSteps, setSavingSteps] = useState(false);
-  const [savingIngredients, setSavingIngredients] = useState(false);
   const [form, setForm] = useState<EditRecipeForm | null>(null);
   const [steps, setSteps] = useState<RecipeStepDraft[]>([createEmptyStep()]);
   const [ingredientDrafts, setIngredientDrafts] = useState<RecipeIngredientDraft[]>([]);
@@ -158,6 +157,27 @@ export default function RecipeDetailScreen() {
   const currentRecipe = recipeDetail.data?.recipe ?? null;
   const isImported = currentRecipe?.source_type === 'importada';
   const catalog = useMemo(() => recipeDetail.data?.catalog ?? [], [recipeDetail.data?.catalog]);
+  const recipeFieldsChanged = useMemo(() => {
+    if (!recipeDetail.data || !form) return false;
+
+    const initialForm = createEditForm(recipeDetail.data.recipe);
+
+    return (
+      form.name.trim() !== initialForm.name.trim() ||
+      form.category !== initialForm.category ||
+      form.dish_type !== initialForm.dish_type ||
+      form.cost_level !== initialForm.cost_level ||
+      form.servings.trim() !== initialForm.servings ||
+      imageUri !== recipeDetail.data.recipe.image_url
+    );
+  }, [form, imageUri, recipeDetail.data]);
+  const feedbackChanged = useMemo(() => {
+    if (!recipeDetail.data || !form) return false;
+
+    const initialForm = createEditForm(recipeDetail.data.recipe);
+
+    return form.status !== initialForm.status || form.feedback_notes.trim() !== initialForm.feedback_notes.trim();
+  }, [form, recipeDetail.data]);
   const stepsChanged = useMemo(() => {
     if (!recipeDetail.data) return false;
 
@@ -174,6 +194,10 @@ export default function RecipeDetailScreen() {
       JSON.stringify(normalizeIngredientDraftsForCompare(ingredientDraftsFromIngredients(recipeDetail.data.ingredients, recipeDetail.data.catalog)))
     );
   }, [ingredientDrafts, recipeDetail.data]);
+  const hasChanges = Boolean(
+    form &&
+      (feedbackChanged || (!isImported && (recipeFieldsChanged || stepsChanged || ingredientsChanged))),
+  );
 
   useEffect(() => {
     if (!recipeDetail.data) return;
@@ -204,6 +228,9 @@ export default function RecipeDetailScreen() {
     }
 
     const servings = parseOptionalNumber(form.servings);
+    const validSteps = steps.filter((step) => step.description.trim().length > 0);
+    const validIngredients = ingredientDrafts.filter((ingredient) => ingredient.ingredient_name.trim());
+
     if (!form.name.trim()) {
       Alert.alert('Nome em falta', 'Preenche o nome da receita.');
       return;
@@ -211,6 +238,21 @@ export default function RecipeDetailScreen() {
 
     if (!servings || servings <= 0) {
       Alert.alert('Doses inválidas', 'Indica um número de doses maior que zero.');
+      return;
+    }
+
+    if (validSteps.length === 0) {
+      Alert.alert('Passos em falta', 'Adiciona pelo menos um passo à receita.');
+      return;
+    }
+
+    if (validIngredients.length === 0) {
+      Alert.alert('Ingredientes em falta', 'Adiciona pelo menos um ingrediente à receita.');
+      return;
+    }
+
+    if (validIngredients.some((ingredient) => ingredient.quantity.trim() && parseOptionalNumber(ingredient.quantity) === null)) {
+      Alert.alert('Quantidade inválida', 'As quantidades dos ingredientes têm de ser numéricas.');
       return;
     }
 
@@ -240,7 +282,24 @@ export default function RecipeDetailScreen() {
         source_type: 'criada',
         source_url: null,
       });
-      await updateRecipeFeedback(currentRecipe.id, form.status, sanitizeOptionalText(form.feedback_notes));
+
+      if (feedbackChanged) {
+        await updateRecipeFeedback(currentRecipe.id, form.status, sanitizeOptionalText(form.feedback_notes));
+      }
+
+      await saveRecipeSteps(
+        currentRecipe.id,
+        validSteps.map((step, index) => ({
+          id: step.id,
+          recipe_id: currentRecipe.id,
+          position: index + 1,
+          description: step.description,
+        })),
+      );
+      await saveRecipeIngredients(
+        currentRecipe.id,
+        validIngredients.map((ingredient) => ingredientDraftToInput(currentRecipe.id, ingredient)),
+      );
 
       await recipeDetail.reload();
       Alert.alert('Receita atualizada', 'As alterações foram guardadas.');
@@ -251,69 +310,8 @@ export default function RecipeDetailScreen() {
     }
   }
 
-  async function handleSaveSteps() {
-    if (!currentRecipe || isImported) return;
-
-    const validSteps = steps.filter((step) => step.description.trim().length > 0);
-
-    if (validSteps.length === 0) {
-      Alert.alert('Passos em falta', 'Adiciona pelo menos um passo à receita.');
-      return;
-    }
-
-    setSavingSteps(true);
-
-    try {
-      await saveRecipeSteps(
-        currentRecipe.id,
-        validSteps.map((step, index) => ({
-          id: step.id,
-          recipe_id: currentRecipe.id,
-          position: index + 1,
-          description: step.description,
-        })),
-      );
-      await recipeDetail.reload();
-      Alert.alert('Passos guardados', 'Os passos da receita foram atualizados.');
-    } catch (error) {
-      Alert.alert('Erro ao guardar passos', error instanceof Error ? error.message : 'Tenta novamente.');
-    } finally {
-      setSavingSteps(false);
-    }
-  }
-
-  async function handleSaveIngredients() {
-    if (!currentRecipe || isImported) return;
-
-    const validIngredients = ingredientDrafts.filter((ingredient) => ingredient.ingredient_name.trim());
-
-    if (validIngredients.length === 0) {
-      Alert.alert('Ingredientes em falta', 'Adiciona pelo menos um ingrediente à receita.');
-      return;
-    }
-
-    if (validIngredients.some((ingredient) => ingredient.quantity.trim() && parseOptionalNumber(ingredient.quantity) === null)) {
-      Alert.alert('Quantidade inválida', 'As quantidades dos ingredientes têm de ser numéricas.');
-      return;
-    }
-
-    setSavingIngredients(true);
-
-    try {
-      await saveRecipeIngredients(
-        currentRecipe.id,
-        validIngredients.map((ingredient) => ingredientDraftToInput(currentRecipe.id, ingredient)),
-      );
-      await recipeDetail.reload();
-      Alert.alert('Ingredientes guardados', 'Os ingredientes da receita foram atualizados.');
-    } catch (error) {
-      Alert.alert('Erro ao guardar ingredientes', error instanceof Error ? error.message : 'Tenta novamente.');
-    } finally {
-      setSavingIngredients(false);
-    }
-  }
-
   return (
+    <View style={styles.screenRoot}>
     <AppScreen refreshing={recipeDetail.refreshing} onRefresh={() => void recipeDetail.reload()}>
       {recipeDetail.loading ? <LoadingState label="A carregar detalhe da receita..." /> : null}
 
@@ -373,13 +371,6 @@ export default function RecipeDetailScreen() {
               multiline
               editable
             />
-            <ButtonRow>
-              <AppButton
-                label={saving ? 'A guardar...' : 'Guardar feedback'}
-                onPress={() => void handleSave()}
-                disabled={saving}
-              />
-            </ButtonRow>
           </SectionCard>
 
           <SectionHeader>Dados</SectionHeader>
@@ -414,39 +405,7 @@ export default function RecipeDetailScreen() {
             <FormField label="Doses" value={form.servings} onChangeText={(servings) => setForm((current) => (current ? { ...current, servings } : current))} keyboardType="numeric" editable={!isImported} />
             {!isImported ? <RecipeImagePicker value={imageUri} onChange={setImageUri} /> : null}
             <StepFields steps={steps} onChange={setSteps} disabled={isImported} />
-            {!isImported && stepsChanged ? (
-              <ButtonRow>
-                <AppButton
-                  label={savingSteps ? 'A guardar passos...' : 'Guardar passos'}
-                  onPress={() => void handleSaveSteps()}
-                  disabled={savingSteps}
-                />
-              </ButtonRow>
-            ) : null}
             <RecipeIngredientFields ingredients={ingredientDrafts} catalog={catalog} onChange={setIngredientDrafts} disabled={isImported} />
-            {!isImported && ingredientsChanged ? (
-              <ButtonRow>
-                <AppButton
-                  label={savingIngredients ? 'A guardar ingredientes...' : 'Guardar ingredientes'}
-                  onPress={() => void handleSaveIngredients()}
-                  disabled={savingIngredients}
-                />
-              </ButtonRow>
-            ) : null}
-          </SectionCard>
-
-          <SectionHeader>Ingredientes atuais</SectionHeader>
-          <SectionCard>
-            {recipeDetail.data?.ingredients.length ? (
-              recipeDetail.data.ingredients.map((ingredient) => (
-                <View key={ingredient.id} style={styles.ingredientRow}>
-                  <ThemedText>{ingredient.ingredient_name}</ThemedText>
-                  <ThemedText themeColor="textSecondary">{formatQuantity(ingredient.quantity, ingredient.unit)}</ThemedText>
-                </View>
-              ))
-            ) : (
-              <ThemedText themeColor="textSecondary">Esta receita ainda não tem ingredientes associados.</ThemedText>
-            )}
           </SectionCard>
 
           <SectionHeader>Histórico</SectionHeader>
@@ -473,10 +432,30 @@ export default function RecipeDetailScreen() {
         </>
       ) : null}
     </AppScreen>
+    {hasChanges ? (
+      <Pressable
+        accessibilityLabel="Guardar alterações"
+        disabled={saving}
+        onPress={() => void handleSave()}
+        style={({ pressed }) => [
+          styles.floatingSaveButton,
+          { top: insets.top + 8 },
+          pressed && !saving && styles.pressed,
+          saving && styles.floatingSaveButtonDisabled,
+        ]}>
+        <ThemedText type="subtitle" style={styles.floatingSaveText}>
+          ✓
+        </ThemedText>
+      </Pressable>
+    ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   header: {
     gap: Spacing.two,
   },
@@ -496,10 +475,6 @@ const styles = StyleSheet.create({
   paragraph: {
     lineHeight: 21,
   },
-  ingredientRow: {
-    gap: 2,
-    paddingVertical: Spacing.two,
-  },
   feedbackRow: {
     gap: Spacing.one,
     paddingVertical: Spacing.two,
@@ -513,5 +488,25 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  floatingSaveButton: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 10,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#34C759',
+    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.18)',
+  },
+  floatingSaveButtonDisabled: {
+    opacity: 0.55,
+  },
+  floatingSaveText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    lineHeight: 24,
   },
 });
