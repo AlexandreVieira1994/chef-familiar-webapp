@@ -189,6 +189,55 @@ export async function replaceRecipeSteps(recipeId: string, steps: RecipeStepInpu
   );
 }
 
+export async function saveRecipeSteps(recipeId: string, steps: RecipeStepInput[]) {
+  const client = getClient();
+  const currentSteps = await listRecipeSteps(recipeId);
+  const payload = steps
+    .map((step, index) => ({
+      id: step.id,
+      recipe_id: recipeId,
+      position: index + 1,
+      description: step.description.trim(),
+    }))
+    .filter((step) => step.description.length > 0);
+  const keptIds = new Set(payload.map((step) => step.id).filter(Boolean));
+  const removedIds = currentSteps
+    .filter((step) => !keptIds.has(step.id))
+    .map((step) => step.id);
+
+  if (removedIds.length > 0) {
+    await runQuery<null>(client.from('recipe_steps').delete().in('id', removedIds));
+  }
+
+  for (const step of payload) {
+    if (step.id) {
+      await runQuery<RecipeStep[]>(
+        client
+          .from('recipe_steps')
+          .update({
+            position: step.position,
+            description: step.description,
+          })
+          .eq('id', step.id)
+          .select(recipeStepSelect),
+      );
+    } else {
+      await runQuery<RecipeStep[]>(
+        client
+          .from('recipe_steps')
+          .insert({
+            recipe_id: recipeId,
+            position: step.position,
+            description: step.description,
+          })
+          .select(recipeStepSelect),
+      );
+    }
+  }
+
+  return listRecipeSteps(recipeId);
+}
+
 export async function replaceRecipeIngredients(recipeId: string, ingredients: RecipeIngredientInput[]) {
   const client = getClient();
   await runQuery<null>(client.from('recipe_ingredients').delete().eq('recipe_id', recipeId));
@@ -214,6 +263,70 @@ export async function replaceRecipeIngredients(recipeId: string, ingredients: Re
       .insert(payload)
       .select(recipeIngredientSelect),
   );
+}
+
+export async function saveRecipeIngredients(recipeId: string, ingredients: RecipeIngredientInput[]) {
+  const client = getClient();
+  const currentIngredients = await listRecipeIngredients(recipeId);
+  const payload = ingredients
+    .map((ingredient) => ({
+      id: ingredient.id,
+      recipe_id: recipeId,
+      ingredient_id: ingredient.ingredient_id ?? null,
+      ingredient_name: ingredient.ingredient_name.trim(),
+      quantity: ingredient.quantity ?? null,
+      unit: ingredient.unit ?? null,
+      category: ingredient.category ?? null,
+      optional: ingredient.optional ?? false,
+      image_url: ingredient.image_url ?? null,
+    }))
+    .filter((ingredient) => ingredient.ingredient_name.length > 0);
+  const keptIds = new Set(payload.map((ingredient) => ingredient.id).filter(Boolean));
+  const removedIds = currentIngredients
+    .filter((ingredient) => !keptIds.has(ingredient.id))
+    .map((ingredient) => ingredient.id);
+
+  if (removedIds.length > 0) {
+    await runQuery<null>(client.from('recipe_ingredients').delete().in('id', removedIds));
+  }
+
+  for (const ingredient of payload) {
+    if (ingredient.id) {
+      await runQuery<RecipeIngredient[]>(
+        client
+          .from('recipe_ingredients')
+          .update({
+            ingredient_id: ingredient.ingredient_id,
+            ingredient_name: ingredient.ingredient_name,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            category: ingredient.category,
+            optional: ingredient.optional,
+            image_url: ingredient.image_url,
+          })
+          .eq('id', ingredient.id)
+          .select(recipeIngredientSelect),
+      );
+    } else {
+      await runQuery<RecipeIngredient[]>(
+        client
+          .from('recipe_ingredients')
+          .insert({
+            recipe_id: recipeId,
+            ingredient_id: ingredient.ingredient_id,
+            ingredient_name: ingredient.ingredient_name,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            category: ingredient.category,
+            optional: ingredient.optional,
+            image_url: ingredient.image_url,
+          })
+          .select(recipeIngredientSelect),
+      );
+    }
+  }
+
+  return listRecipeIngredients(recipeId);
 }
 
 function getImageExtension(uri: string) {

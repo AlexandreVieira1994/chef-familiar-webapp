@@ -10,10 +10,12 @@ import { unitOptions } from '@/lib/options';
 import { Ingredient } from '@/lib/types';
 
 export type RecipeStepDraft = {
+  id?: string;
   description: string;
 };
 
 export type RecipeIngredientDraft = {
+  id?: string;
   ingredient_id: string;
   ingredient_name: string;
   quantity: string;
@@ -41,6 +43,7 @@ export function createEmptyIngredient(ingredients: Ingredient[]): RecipeIngredie
 
 export function ingredientDraftToInput(recipeId: string, draft: RecipeIngredientDraft) {
   return {
+    id: draft.id,
     recipe_id: recipeId,
     ingredient_id: draft.ingredient_id || null,
     ingredient_name: draft.ingredient_name,
@@ -134,7 +137,7 @@ export function StepFields({
   disabled?: boolean;
 }) {
   function updateStep(index: number, description: string) {
-    onChange(steps.map((step, currentIndex) => (currentIndex === index ? { description } : step)));
+    onChange(steps.map((step, currentIndex) => (currentIndex === index ? { ...step, description } : step)));
   }
 
   return (
@@ -143,12 +146,13 @@ export function StepFields({
         Passos
       </ThemedText>
       {steps.map((step, index) => (
-        <View key={`step-${index}`} style={styles.subField}>
+        <View key={step.id ?? `step-${index}`} style={styles.subField}>
           <FormField
             label={`Passo ${index + 1}`}
             value={step.description}
             onChangeText={(description) => updateStep(index, description)}
             multiline
+            autoGrow
             editable={!disabled}
           />
           {!disabled && steps.length > 1 ? (

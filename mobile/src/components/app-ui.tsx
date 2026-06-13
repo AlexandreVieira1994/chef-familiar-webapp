@@ -116,6 +116,7 @@ type FormFieldProps = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  autoGrow?: boolean;
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'url';
   editable?: boolean;
 };
@@ -126,10 +127,18 @@ export function FormField({
   onChangeText,
   placeholder,
   multiline,
+  autoGrow,
   keyboardType = 'default',
   editable = true,
 }: FormFieldProps) {
   const theme = useTheme();
+  const autoGrowHeight = useMemo(() => {
+    if (!autoGrow) return undefined;
+
+    const lines = value.split('\n').reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 34)), 0);
+
+    return Math.min(Math.max(lines * 22 + 22, 44), 156);
+  }, [autoGrow, value]);
 
   return (
     <View style={styles.fieldGroup}>
@@ -142,9 +151,13 @@ export function FormField({
         keyboardType={keyboardType}
         multiline={multiline}
         editable={editable}
+        numberOfLines={autoGrow ? 1 : undefined}
+        scrollEnabled={!autoGrow}
         style={[
           styles.input,
-          multiline && styles.textArea,
+          multiline && !autoGrow && styles.textArea,
+          multiline && autoGrow && styles.autoGrowTextArea,
+          autoGrow && { height: autoGrowHeight },
           !editable && styles.inputDisabled,
           {
             color: theme.text,
@@ -563,6 +576,10 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 110,
+    textAlignVertical: 'top',
+  },
+  autoGrowTextArea: {
+    minHeight: 44,
     textAlignVertical: 'top',
   },
   inputDisabled: {
