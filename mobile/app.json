@@ -27,6 +27,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "A app usa as tuas fotos para anexar imagens às receitas.",
+          "cameraPermission": "A app usa a câmara para tirar fotos das receitas.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",

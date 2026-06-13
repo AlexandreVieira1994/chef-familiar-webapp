@@ -1,58 +1,88 @@
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   AppButton,
   AppScreen,
   ButtonRow,
-  ChipSelector,
   FormField,
   FormModal,
   InfoState,
-  InsetGroup,
-  ListRow,
   LoadingState,
   SectionHeader,
+  SelectField,
   Tag,
 } from '@/components/app-ui';
+import {
+  createEmptyIngredient,
+  createEmptyStep,
+  ingredientDraftToInput,
+  RecipeImagePicker,
+  RecipeIngredientDraft,
+  RecipeIngredientFields,
+  RecipeStepDraft,
+  StepFields,
+} from '@/components/recipe-form-fields';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
-import { recipeSourceTypeOptions, recipeStatusOptions } from '@/lib/options';
-import { sanitizeOptionalText } from '@/lib/format';
-import { listRecipes, upsertRecipe } from '@/lib/services';
-import { RecipeSourceType, RecipeStatus, RecipeUpsertInput } from '@/lib/types';
+import { parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
+import { costLevelOptions, recipeCategoryOptions, recipeStatusOptions } from '@/lib/options';
+import { createRecipeWithDetails, listIngredients, listRecipes } from '@/lib/services';
+import { Ingredient, Recipe, RecipeStatus } from '@/lib/types';
+
+type RecipesData = {
+  recipes: Recipe[];
+  ingredients: Ingredient[];
+};
+
+type CreateRecipeForm = {
+  name: string;
+  category: string;
+  status: RecipeStatus;
+  cost_level: string;
+  servings: string;
+  notes: string;
+};
 
 function createInternalRecipeCode() {
   return `RF-${Date.now().toString(36).toUpperCase()}`;
 }
 
-function createEmptyForm(): RecipeUpsertInput {
+function createEmptyForm(): CreateRecipeForm {
   return {
-    code: createInternalRecipeCode(),
     name: '',
-    category: '',
+    category: recipeCategoryOptions[0].value,
     status: 'por_testar',
-    prep_time_min: null,
-    cook_time_min: null,
     cost_level: '',
+    servings: '4',
     notes: '',
-    image_url: '',
-    source_type: 'manual',
-    source_url: '',
   };
 }
 
+function createInitialIngredients(catalog: Ingredient[]) {
+  return catalog.length ? [createEmptyIngredient(catalog)] : [];
+}
+
 export default function RecipesScreen() {
-  const loadRecipes = useCallback(() => listRecipes(), []);
-  const recipes = useAsyncResource(loadRecipes);
+  const loadRecipes = useCallback(async () => {
+    const [recipes, ingredients] = await Promise.all([listRecipes(), listIngredients()]);
+
+    return { recipes, ingredients };
+  }, []);
+  const recipes = useAsyncResource<RecipesData>(loadRecipes);
   const router = useRouter();
   const [formVisible, setFormVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<RecipeUpsertInput>(createEmptyForm);
+  const [form, setForm] = useState<CreateRecipeForm>(createEmptyForm);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [steps, setSteps] = useState<RecipeStepDraft[]>([createEmptyStep()]);
+  const [ingredientDrafts, setIngredientDrafts] = useState<RecipeIngredientDraft[]>([]);
 
   const reload = recipes.reload;
+  const catalog = recipes.data?.ingredients ?? [];
 
   useFocusEffect(
     useCallback(() => {
@@ -60,37 +90,71 @@ export default function RecipesScreen() {
     }, [reload]),
   );
 
-  const sortedStatuses = useMemo(() => recipeStatusOptions, []);
+  function openCreate() {
+    setForm(createEmptyForm());
+    setImageUri(null);
+    setSteps([createEmptyStep()]);
+    setIngredientDrafts(createInitialIngredients(catalog));
+    setFormVisible(true);
+  }
 
   async function handleCreateRecipe() {
-    if (!form.name.trim() || !form.category.trim()) {
-      Alert.alert('Campos em falta', 'Preenche pelo menos nome e categoria.');
+    const servings = parseOptionalNumber(form.servings);
+    const validSteps = steps.filter((step) => step.description.trim().length > 0);
+    const validIngredients = ingredientDrafts.filter((ingredient) => ingredient.ingredient_id && ingredient.ingredient_name.trim());
+
+    if (!form.name.trim()) {
+      Alert.alert('Nome em falta', 'Preenche o nome da receita.');
       return;
     }
 
-    if (form.source_type === 'importada' && !form.source_url?.trim()) {
-      Alert.alert('Fonte em falta', 'Receitas importadas precisam de um URL de origem.');
+    if (!servings || servings <= 0) {
+      Alert.alert('Doses inválidas', 'Indica um número de doses maior que zero.');
+      return;
+    }
+
+    if (validSteps.length === 0) {
+      Alert.alert('Passos em falta', 'Adiciona pelo menos um passo à receita.');
+      return;
+    }
+
+    if (validIngredients.length === 0) {
+      Alert.alert('Ingredientes em falta', 'Escolhe pelo menos um ingrediente do catálogo.');
+      return;
+    }
+
+    if (validIngredients.some((ingredient) => ingredient.quantity.trim() && parseOptionalNumber(ingredient.quantity) === null)) {
+      Alert.alert('Quantidade inválida', 'As quantidades dos ingredientes têm de ser numéricas.');
       return;
     }
 
     setSaving(true);
 
     try {
-      const [createdRecipe] = (await upsertRecipe({
-        ...form,
-        cost_level: sanitizeOptionalText(form.cost_level ?? ''),
-        notes: sanitizeOptionalText(form.notes ?? ''),
-        image_url: sanitizeOptionalText(form.image_url ?? ''),
-        source_type: form.source_type ?? 'manual',
-        source_url: sanitizeOptionalText(form.source_url ?? ''),
-      })) ?? [];
+      const createdRecipe = await createRecipeWithDetails({
+        recipe: {
+          code: createInternalRecipeCode(),
+          name: form.name,
+          category: form.category,
+          status: form.status,
+          cost_level: sanitizeOptionalText(form.cost_level),
+          notes: sanitizeOptionalText(form.notes),
+          servings,
+          source_type: 'criada',
+          source_url: null,
+        },
+        steps: validSteps.map((step, index) => ({
+          recipe_id: '',
+          position: index + 1,
+          description: step.description,
+        })),
+        ingredients: validIngredients.map((ingredient) => ingredientDraftToInput('', ingredient)),
+        imageUri,
+      });
 
       setFormVisible(false);
-      setForm(createEmptyForm());
       await recipes.reload();
-      if (createdRecipe) {
-        router.push(`/recipes/${createdRecipe.id}` as never);
-      }
+      router.push(`/recipes/${createdRecipe.id}` as never);
     } catch (error) {
       Alert.alert('Erro ao criar receita', error instanceof Error ? error.message : 'Tenta novamente.');
     } finally {
@@ -103,18 +167,12 @@ export default function RecipesScreen() {
       <View style={styles.header}>
         <ThemedText type="title">Receitas</ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.paragraph}>
-          Catálogo principal da app, com detalhe, edição e ligação às fontes originais.
+          Catálogo principal da app, com doses, passos, ingredientes normalizados e ligação às fontes originais.
         </ThemedText>
       </View>
 
       <ButtonRow>
-        <AppButton
-          label="Nova receita"
-          onPress={() => {
-            setForm(createEmptyForm());
-            setFormVisible(true);
-          }}
-        />
+        <AppButton label="Nova receita" onPress={openCreate} />
       </ButtonRow>
 
       {recipes.loading ? <LoadingState label="A carregar receitas..." /> : null}
@@ -127,28 +185,43 @@ export default function RecipesScreen() {
         />
       ) : null}
 
-      {recipes.data && recipes.data.length === 0 ? (
+      {recipes.data && recipes.data.recipes.length === 0 ? (
         <InfoState
           title="Sem receitas"
           message="Ainda não existem receitas visíveis no Supabase. Podes criar a primeira a partir deste ecrã."
         />
       ) : null}
 
-      {recipes.data?.length ? <SectionHeader>Lista</SectionHeader> : null}
-      <InsetGroup>
-        {recipes.data?.map((recipe) => (
+      {recipes.data?.recipes.length ? <SectionHeader>Lista</SectionHeader> : null}
+      <View style={styles.recipeList}>
+        {recipes.data?.recipes.map((recipe) => (
           <Pressable
             key={recipe.id}
-            style={({ pressed }) => [pressed && styles.pressed]}
+            style={({ pressed }) => [styles.recipeRow, pressed && styles.pressed]}
             onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
-            <ListRow
-              title={recipe.name}
-              subtitle={`${recipe.category} · ${recipe.source_type}${recipe.cost_level ? ` · ${recipe.cost_level}` : ''}`}
-              accessory={<Tag>{recipe.status}</Tag>}
-            />
+            <View style={styles.thumbnailShell}>
+              {recipe.image_url ? (
+                <Image source={{ uri: recipe.image_url }} style={styles.thumbnail} contentFit="cover" />
+              ) : (
+                <ThemedText themeColor="textSecondary" style={styles.thumbnailFallback}>
+                  Sem imagem
+                </ThemedText>
+              )}
+            </View>
+            <View style={styles.recipeText}>
+              <ThemedText style={styles.recipeTitle}>{recipe.name}</ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.recipeSubtitle}>
+                {recipe.category} · {recipe.servings} doses
+              </ThemedText>
+              <View style={styles.tags}>
+                <Tag>{recipe.source_type}</Tag>
+                <Tag>{recipe.status}</Tag>
+                {recipe.cost_level ? <Tag>{recipe.cost_level}</Tag> : null}
+              </View>
+            </View>
           </Pressable>
         ))}
-      </InsetGroup>
+      </View>
 
       <FormModal
         visible={formVisible}
@@ -156,23 +229,35 @@ export default function RecipesScreen() {
         onClose={() => setFormVisible(false)}
         footer={<AppButton label={saving ? 'A guardar...' : 'Guardar receita'} onPress={() => void handleCreateRecipe()} disabled={saving} />}>
         <FormField label="Nome" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} placeholder="Nome da receita" />
-        <FormField label="Categoria" value={form.category} onChangeText={(category) => setForm((current) => ({ ...current, category }))} placeholder="Vegetariano, Sopa, Peixe..." />
-        <ChipSelector<RecipeStatus>
+        <SelectField
+          label="Categoria"
+          value={form.category}
+          options={recipeCategoryOptions}
+          onChange={(category) => setForm((current) => ({ ...current, category }))}
+        />
+        <SelectField<RecipeStatus>
           label="Estado"
           value={form.status}
-          options={sortedStatuses}
+          options={recipeStatusOptions}
           onChange={(status) => setForm((current) => ({ ...current, status }))}
         />
-        <ChipSelector<RecipeSourceType>
-          label="Origem"
-          value={form.source_type ?? 'manual'}
-          options={recipeSourceTypeOptions}
-          onChange={(source_type) => setForm((current) => ({ ...current, source_type }))}
+        <SelectField
+          label="Custo"
+          value={form.cost_level}
+          options={costLevelOptions}
+          onChange={(cost_level) => setForm((current) => ({ ...current, cost_level }))}
         />
-        <FormField label="Custo" value={form.cost_level ?? ''} onChangeText={(cost_level) => setForm((current) => ({ ...current, cost_level }))} placeholder="economico, medio..." />
-        <FormField label="Imagem" value={form.image_url ?? ''} onChangeText={(image_url) => setForm((current) => ({ ...current, image_url }))} placeholder="https://..." keyboardType="url" />
-        <FormField label="Fonte" value={form.source_url ?? ''} onChangeText={(source_url) => setForm((current) => ({ ...current, source_url }))} placeholder="https://..." keyboardType="url" />
-        <FormField label="Notas" value={form.notes ?? ''} onChangeText={(notes) => setForm((current) => ({ ...current, notes }))} placeholder="Passos, observações, adaptações..." multiline />
+        <FormField label="Doses" value={form.servings} onChangeText={(servings) => setForm((current) => ({ ...current, servings }))} keyboardType="numeric" />
+        <RecipeImagePicker value={imageUri} onChange={setImageUri} />
+        <StepFields steps={steps} onChange={setSteps} />
+        <RecipeIngredientFields ingredients={ingredientDrafts} catalog={catalog} onChange={setIngredientDrafts} />
+        <FormField
+          label="Notas"
+          value={form.notes}
+          onChangeText={(notes) => setForm((current) => ({ ...current, notes }))}
+          placeholder="Observações, adaptações ou lembretes..."
+          multiline
+        />
       </FormModal>
     </AppScreen>
   );
@@ -184,6 +269,53 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     lineHeight: 21,
+  },
+  recipeList: {
+    gap: Spacing.two,
+  },
+  recipeRow: {
+    minHeight: 96,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+  },
+  thumbnailShell: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(120, 120, 128, 0.16)',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbnailFallback: {
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  recipeText: {
+    flex: 1,
+    gap: 4,
+  },
+  recipeTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  recipeSubtitle: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   pressed: {
     opacity: 0.7,

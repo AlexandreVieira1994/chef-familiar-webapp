@@ -1,4 +1,5 @@
 import { PropsWithChildren, ReactNode } from 'react';
+import { Picker } from '@react-native-picker/picker';
 import {
   ActivityIndicator,
   Modal,
@@ -117,6 +118,7 @@ type FormFieldProps = {
   placeholder?: string;
   multiline?: boolean;
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'url';
+  editable?: boolean;
 };
 
 export function FormField({
@@ -126,6 +128,7 @@ export function FormField({
   placeholder,
   multiline,
   keyboardType = 'default',
+  editable = true,
 }: FormFieldProps) {
   const theme = useTheme();
 
@@ -139,9 +142,11 @@ export function FormField({
         placeholderTextColor={theme.textSecondary}
         keyboardType={keyboardType}
         multiline={multiline}
+        editable={editable}
         style={[
           styles.input,
           multiline && styles.textArea,
+          !editable && styles.inputDisabled,
           {
             color: theme.text,
             borderColor: 'rgba(120, 120, 120, 0.18)',
@@ -157,6 +162,54 @@ type ChipOption<TValue extends string> = {
   label: string;
   value: TValue;
 };
+
+export type SelectOption<TValue extends string> = {
+  label: string;
+  value: TValue;
+};
+
+type SelectFieldProps<TValue extends string> = {
+  label: string;
+  value: TValue;
+  options: SelectOption<TValue>[];
+  onChange: (value: TValue) => void;
+  enabled?: boolean;
+};
+
+export function SelectField<TValue extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  enabled = true,
+}: SelectFieldProps<TValue>) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.fieldGroup}>
+      <FieldLabel>{label}</FieldLabel>
+      <View
+        style={[
+          styles.pickerShell,
+          {
+            borderColor: 'rgba(120, 120, 120, 0.18)',
+            backgroundColor: theme.background,
+          },
+          !enabled && styles.inputDisabled,
+        ]}>
+        <Picker
+          enabled={enabled}
+          selectedValue={value}
+          onValueChange={(selectedValue) => onChange(selectedValue)}
+          style={[styles.picker, { color: theme.text }]}>
+          {options.map((option) => (
+            <Picker.Item key={option.value} label={option.label} value={option.value} />
+          ))}
+        </Picker>
+      </View>
+    </View>
+  );
+}
 
 type ChipSelectorProps<TValue extends string> = {
   label: string;
@@ -428,6 +481,18 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 110,
     textAlignVertical: 'top',
+  },
+  inputDisabled: {
+    opacity: 0.55,
+  },
+  pickerShell: {
+    minHeight: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  picker: {
+    minHeight: 44,
   },
   chipWrap: {
     flexDirection: 'row',

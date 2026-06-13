@@ -1,26 +1,24 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import {
   AppButton,
   AppScreen,
   ButtonRow,
-  ChipSelector,
   FormField,
   FormModal,
   InfoState,
-  InsetGroup,
-  ListRow,
   LoadingState,
   SectionCard,
   SectionHeader,
+  SelectField,
   Tag,
 } from '@/components/app-ui';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
-import { formatDate, sanitizeOptionalText } from '@/lib/format';
+import { formatDate, parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
 import { mealSlotOptions } from '@/lib/options';
 import { deleteMealPlanEntry, listMealPlanEntries, listRecipes, upsertMealPlanEntry } from '@/lib/services';
 import { MealPlanEntryWithRecipe, MealSlot, Recipe } from '@/lib/types';
@@ -43,6 +41,7 @@ export default function PlannerScreen() {
   const [plannedDate, setPlannedDate] = useState(new Date().toISOString().slice(0, 10));
   const [mealSlot, setMealSlot] = useState<MealSlot>('jantar');
   const [recipeId, setRecipeId] = useState('');
+  const [servingsNeeded, setServingsNeeded] = useState('4');
   const [notes, setNotes] = useState('');
 
   useFocusEffect(
@@ -58,6 +57,7 @@ export default function PlannerScreen() {
     setPlannedDate(new Date().toISOString().slice(0, 10));
     setMealSlot('jantar');
     setRecipeId(recipes[0]?.id ?? '');
+    setServingsNeeded(String(recipes[0]?.servings ?? 4));
     setNotes('');
     setFormVisible(true);
   }
@@ -67,13 +67,21 @@ export default function PlannerScreen() {
     setPlannedDate(entry.planned_date);
     setMealSlot(entry.meal_slot);
     setRecipeId(entry.recipe_id);
+    setServingsNeeded(String(entry.servings_needed));
     setNotes(entry.notes ?? '');
     setFormVisible(true);
   }
 
   async function handleSave() {
+    const parsedServings = parseOptionalNumber(servingsNeeded);
+
     if (!plannedDate.trim() || !recipeId) {
       Alert.alert('Campos em falta', 'Escolhe a data e a receita.');
+      return;
+    }
+
+    if (!parsedServings || parsedServings <= 0) {
+      Alert.alert('Doses inválidas', 'Indica quantas doses são necessárias para esta refeição.');
       return;
     }
 
@@ -85,6 +93,7 @@ export default function PlannerScreen() {
         planned_date: plannedDate,
         meal_slot: mealSlot,
         recipe_id: recipeId,
+        servings_needed: parsedServings,
         notes: sanitizeOptionalText(notes),
       });
       setFormVisible(false);
@@ -150,6 +159,7 @@ export default function PlannerScreen() {
             </ThemedText>
             <View style={styles.tags}>
               <Tag>{entry.meal_slot}</Tag>
+              <Tag>{entry.servings_needed} doses</Tag>
               {entry.recipe?.status ? <Tag>{entry.recipe.status}</Tag> : null}
             </View>
             <ThemedText type="subtitle" style={styles.entryTitle}>
@@ -176,32 +186,23 @@ export default function PlannerScreen() {
         onClose={() => setFormVisible(false)}
         footer={<AppButton label={saving ? 'A guardar...' : 'Guardar refeição'} onPress={() => void handleSave()} disabled={saving} />}>
         <FormField label="Data" value={plannedDate} onChangeText={setPlannedDate} placeholder="YYYY-MM-DD" />
-        <ChipSelector<MealSlot> label="Momento do dia" value={mealSlot} options={mealSlotOptions} onChange={setMealSlot} />
+        <SelectField<MealSlot> label="Momento do dia" value={mealSlot} options={mealSlotOptions} onChange={setMealSlot} />
+        {recipes.length === 0 ? (
+          <ThemedText themeColor="textSecondary">Não existem receitas disponíveis para planear.</ThemedText>
+        ) : (
+          <SelectField
+            label="Receita"
+            value={recipeId}
+            options={recipes.map((recipe) => ({ label: recipe.name, value: recipe.id }))}
+            onChange={(selectedRecipeId) => {
+              const selectedRecipe = recipes.find((recipe) => recipe.id === selectedRecipeId);
 
-        <View style={styles.recipePickerSection}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            Receita
-          </ThemedText>
-          {recipes.length === 0 ? (
-            <ThemedText themeColor="textSecondary">Não existem receitas disponíveis para planear.</ThemedText>
-          ) : (
-            <InsetGroup>
-              {recipes.map((recipe) => {
-                const selected = recipe.id === recipeId;
-
-                return (
-                  <Pressable key={recipe.id} onPress={() => setRecipeId(recipe.id)} style={({ pressed }) => [pressed && styles.pressed]}>
-                    <ListRow
-                      title={recipe.name}
-                      subtitle={recipe.category}
-                      accessory={selected ? <Tag>selecionada</Tag> : undefined}
-                    />
-                  </Pressable>
-                );
-              })}
-            </InsetGroup>
-          )}
-        </View>
+              setRecipeId(selectedRecipeId);
+              setServingsNeeded(String(selectedRecipe?.servings ?? 4));
+            }}
+          />
+        )}
+        <FormField label="Doses necessárias" value={servingsNeeded} onChangeText={setServingsNeeded} keyboardType="numeric" />
 
         <FormField label="Notas" value={notes} onChangeText={setNotes} multiline placeholder="Observações, trocas ou lembretes..." />
       </FormModal>
@@ -227,11 +228,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
-  },
-  recipePickerSection: {
-    gap: Spacing.two,
-  },
-  pressed: {
-    opacity: 0.72,
   },
 });

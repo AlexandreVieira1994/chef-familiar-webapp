@@ -3,6 +3,7 @@ import {
   DashboardSummary,
   FamilyRule,
   FamilyRuleInput,
+  Ingredient,
   InventoryEntry,
   InventoryEntryInput,
   MealPlanEntry,
@@ -11,11 +12,20 @@ import {
   Recipe,
   RecipeIngredientInput,
   RecipeIngredient,
+  RecipeStep,
+  RecipeStepInput,
   RecipeUpsertInput,
   ShoppingList,
   ShoppingListItem,
   ShoppingListItemInput,
 } from '@/lib/types';
+
+const recipeSelect =
+  'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, servings, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at';
+const recipeIngredientSelect =
+  'id, recipe_id, ingredient_id, ingredient_name, quantity, unit, category, optional, image_url, created_at';
+const recipeStepSelect = 'id, recipe_id, position, description, created_at';
+const mealPlanSelect = 'id, planned_date, meal_slot, recipe_id, servings_needed, notes, created_at';
 
 function getClient() {
   if (!supabase) {
@@ -42,9 +52,7 @@ export async function listRecipes() {
     (await runQuery<Recipe[]>(
       client
         .from('recipes')
-        .select(
-          'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
-        )
+        .select(recipeSelect)
         .order('code', { ascending: true }),
     )) ?? []
   );
@@ -57,12 +65,23 @@ export async function getRecipe(id: string) {
     (await runQuery<Recipe | null>(
       client
         .from('recipes')
-        .select(
-          'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
-        )
+        .select(recipeSelect)
         .eq('id', id)
         .maybeSingle(),
     )) ?? null
+  );
+}
+
+export async function listIngredients() {
+  const client = getClient();
+
+  return (
+    (await runQuery<Ingredient[]>(
+      client
+        .from('ingredients')
+        .select('id, name, category, default_unit, created_at')
+        .order('name', { ascending: true }),
+    )) ?? []
   );
 }
 
@@ -73,9 +92,23 @@ export async function listRecipeIngredients(recipeId: string) {
     (await runQuery<RecipeIngredient[]>(
       client
         .from('recipe_ingredients')
-        .select('id, recipe_id, ingredient_name, quantity, unit, category, optional, image_url, created_at')
+        .select(recipeIngredientSelect)
         .eq('recipe_id', recipeId)
         .order('created_at', { ascending: true }),
+    )) ?? []
+  );
+}
+
+export async function listRecipeSteps(recipeId: string) {
+  const client = getClient();
+
+  return (
+    (await runQuery<RecipeStep[]>(
+      client
+        .from('recipe_steps')
+        .select(recipeStepSelect)
+        .eq('recipe_id', recipeId)
+        .order('position', { ascending: true }),
     )) ?? []
   );
 }
@@ -84,6 +117,7 @@ export async function upsertRecipeIngredient(input: RecipeIngredientInput) {
   const client = getClient();
   const payload = {
     recipe_id: input.recipe_id,
+    ingredient_id: input.ingredient_id ?? null,
     ingredient_name: input.ingredient_name.trim(),
     quantity: input.quantity ?? null,
     unit: input.unit ?? null,
@@ -98,7 +132,7 @@ export async function upsertRecipeIngredient(input: RecipeIngredientInput) {
         .from('recipe_ingredients')
         .update(payload)
         .eq('id', input.id)
-        .select('id, recipe_id, ingredient_name, quantity, unit, category, optional, image_url, created_at'),
+        .select(recipeIngredientSelect),
     );
   }
 
@@ -106,7 +140,7 @@ export async function upsertRecipeIngredient(input: RecipeIngredientInput) {
     client
       .from('recipe_ingredients')
       .insert(payload)
-      .select('id, recipe_id, ingredient_name, quantity, unit, category, optional, image_url, created_at'),
+      .select(recipeIngredientSelect),
   );
 }
 
@@ -116,9 +150,111 @@ export async function deleteRecipeIngredient(id: string) {
   await runQuery<null>(client.from('recipe_ingredients').delete().eq('id', id));
 }
 
+export async function replaceRecipeSteps(recipeId: string, steps: RecipeStepInput[]) {
+  const client = getClient();
+  await runQuery<null>(client.from('recipe_steps').delete().eq('recipe_id', recipeId));
+
+  const payload = steps
+    .map((step, index) => ({
+      recipe_id: recipeId,
+      position: index + 1,
+      description: step.description.trim(),
+    }))
+    .filter((step) => step.description.length > 0);
+
+  if (payload.length === 0) return [];
+
+  return runQuery<RecipeStep[]>(
+    client
+      .from('recipe_steps')
+      .insert(payload)
+      .select(recipeStepSelect),
+  );
+}
+
+export async function replaceRecipeIngredients(recipeId: string, ingredients: RecipeIngredientInput[]) {
+  const client = getClient();
+  await runQuery<null>(client.from('recipe_ingredients').delete().eq('recipe_id', recipeId));
+
+  const payload = ingredients
+    .map((ingredient) => ({
+      recipe_id: recipeId,
+      ingredient_id: ingredient.ingredient_id ?? null,
+      ingredient_name: ingredient.ingredient_name.trim(),
+      quantity: ingredient.quantity ?? null,
+      unit: ingredient.unit ?? null,
+      category: ingredient.category ?? null,
+      optional: ingredient.optional ?? false,
+      image_url: ingredient.image_url ?? null,
+    }))
+    .filter((ingredient) => ingredient.ingredient_name.length > 0);
+
+  if (payload.length === 0) return [];
+
+  return runQuery<RecipeIngredient[]>(
+    client
+      .from('recipe_ingredients')
+      .insert(payload)
+      .select(recipeIngredientSelect),
+  );
+}
+
+function getImageExtension(uri: string) {
+  const cleanUri = uri.split('?')[0] ?? uri;
+  const extension = cleanUri.split('.').pop()?.toLowerCase();
+
+  if (extension && /^[a-z0-9]+$/.test(extension)) {
+    return extension === 'jpeg' ? 'jpg' : extension;
+  }
+
+  return 'jpg';
+}
+
+function getImageContentType(extension: string) {
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  if (extension === 'heic') return 'image/heic';
+
+  return 'image/jpeg';
+}
+
+export async function uploadRecipeImage(uri: string) {
+  const client = getClient();
+  const extension = getImageExtension(uri);
+  const path = `recipes/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  const response = await fetch(uri);
+
+  if (!response.ok) {
+    throw new Error('Não foi possível ler a imagem selecionada.');
+  }
+
+  const imageBlob = await response.blob();
+  const { error } = await client.storage.from('recipe-images').upload(path, imageBlob, {
+    contentType: getImageContentType(extension),
+    upsert: false,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { data } = client.storage.from('recipe-images').getPublicUrl(path);
+
+  return { path, publicUrl: data.publicUrl };
+}
+
+export async function deleteRecipeImage(path: string) {
+  const client = getClient();
+  const { error } = await client.storage.from('recipe-images').remove([path]);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function upsertRecipe(input: RecipeUpsertInput) {
   const client = getClient();
-  const sourceType = input.source_type ?? 'manual';
+  const sourceType = input.source_type ?? 'criada';
   const sourceUrl = input.source_url?.trim() ? input.source_url.trim() : null;
   const payload = {
     code: input.code.trim(),
@@ -129,6 +265,7 @@ export async function upsertRecipe(input: RecipeUpsertInput) {
     cook_time_min: input.cook_time_min ?? null,
     cost_level: input.cost_level ?? null,
     notes: input.notes ?? null,
+    servings: input.servings ?? 4,
     image_url: input.image_url ?? null,
     source_type: sourceType,
     source_url: sourceUrl,
@@ -136,17 +273,82 @@ export async function upsertRecipe(input: RecipeUpsertInput) {
 
   if (input.id) {
     return runQuery<Recipe[]>(
-      client.from('recipes').update(payload).eq('id', input.id).select(
-        'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
-      ),
+      client.from('recipes').update(payload).eq('id', input.id).select(recipeSelect),
     );
   }
 
   return runQuery<Recipe[]>(
-    client.from('recipes').insert(payload).select(
-      'id, code, name, category, status, prep_time_min, cook_time_min, cost_level, notes, feedback_notes, last_feedback_at, feedback_history, image_url, source_type, source_url, created_at',
-    ),
+    client.from('recipes').insert(payload).select(recipeSelect),
   );
+}
+
+export async function createRecipeWithDetails({
+  recipe,
+  steps,
+  ingredients,
+  imageUri,
+}: {
+  recipe: RecipeUpsertInput;
+  steps: RecipeStepInput[];
+  ingredients: RecipeIngredientInput[];
+  imageUri?: string | null;
+}) {
+  let uploadedImagePath: string | null = null;
+  let createdRecipeId: string | null = null;
+
+  try {
+    let imageUrl = recipe.image_url ?? null;
+
+    if (imageUri) {
+      const uploaded = await uploadRecipeImage(imageUri);
+      uploadedImagePath = uploaded.path;
+      imageUrl = uploaded.publicUrl;
+    }
+
+    const [createdRecipe] =
+      (await upsertRecipe({
+        ...recipe,
+        image_url: imageUrl,
+        source_type: 'criada',
+        source_url: null,
+      })) ?? [];
+
+    if (!createdRecipe) {
+      throw new Error('Não foi possível criar a receita.');
+    }
+
+    createdRecipeId = createdRecipe.id;
+
+    await replaceRecipeSteps(
+      createdRecipe.id,
+      steps.map((step, index) => ({
+        ...step,
+        recipe_id: createdRecipe.id,
+        position: index + 1,
+      })),
+    );
+    await replaceRecipeIngredients(
+      createdRecipe.id,
+      ingredients.map((ingredient) => ({
+        ...ingredient,
+        recipe_id: createdRecipe.id,
+      })),
+    );
+
+    return createdRecipe;
+  } catch (error) {
+    const client = getClient();
+
+    if (createdRecipeId) {
+      await runQuery<null>(client.from('recipes').delete().eq('id', createdRecipeId)).catch(() => null);
+    }
+
+    if (uploadedImagePath) {
+      await deleteRecipeImage(uploadedImagePath).catch(() => null);
+    }
+
+    throw error;
+  }
 }
 
 export async function listInventoryEntries() {
@@ -266,7 +468,7 @@ export async function listMealPlanEntries() {
     runQuery<MealPlanEntry[]>(
       client
         .from('meal_plan_entries')
-        .select('id, planned_date, meal_slot, recipe_id, notes, created_at')
+        .select(mealPlanSelect)
         .order('planned_date', { ascending: true })
         .order('meal_slot', { ascending: true }),
     ),
@@ -284,6 +486,7 @@ export async function listMealPlanEntries() {
           name: recipesById.get(entry.recipe_id)!.name,
           category: recipesById.get(entry.recipe_id)!.category,
           status: recipesById.get(entry.recipe_id)!.status,
+          servings: recipesById.get(entry.recipe_id)!.servings,
         }
       : null,
   }));
@@ -295,6 +498,7 @@ export async function upsertMealPlanEntry(input: MealPlanEntryInput) {
     planned_date: input.planned_date,
     meal_slot: input.meal_slot,
     recipe_id: input.recipe_id,
+    servings_needed: input.servings_needed ?? 4,
     notes: input.notes ?? null,
   };
 
@@ -304,7 +508,7 @@ export async function upsertMealPlanEntry(input: MealPlanEntryInput) {
         client
           .from('meal_plan_entries')
           .insert(payload)
-          .select('id, planned_date, meal_slot, recipe_id, notes, created_at'),
+          .select(mealPlanSelect),
       )) ?? [];
 
     await runQuery<null>(client.from('meal_plan_entries').delete().eq('id', input.id));
@@ -316,7 +520,7 @@ export async function upsertMealPlanEntry(input: MealPlanEntryInput) {
     client
       .from('meal_plan_entries')
       .insert(payload)
-      .select('id, planned_date, meal_slot, recipe_id, notes, created_at'),
+      .select(mealPlanSelect),
   );
 }
 

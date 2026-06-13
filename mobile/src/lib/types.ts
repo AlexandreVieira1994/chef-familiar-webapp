@@ -5,7 +5,7 @@ export type RecipeStatus =
   | 'a_melhorar'
   | 'rejeitada';
 
-export type RecipeSourceType = 'manual' | 'importada';
+export type RecipeSourceType = 'criada' | 'importada';
 
 export type MealSlot = 'pequeno-almoco' | 'almoco' | 'lanche' | 'jantar';
 
@@ -23,6 +23,7 @@ export type Recipe = {
   cook_time_min: number | null;
   cost_level: string | null;
   notes: string | null;
+  servings: number;
   feedback_notes: string | null;
   last_feedback_at: string | null;
   feedback_history: unknown[];
@@ -32,15 +33,32 @@ export type Recipe = {
   created_at: string;
 };
 
+export type Ingredient = {
+  id: string;
+  name: string;
+  category: string | null;
+  default_unit: string | null;
+  created_at: string;
+};
+
 export type RecipeIngredient = {
   id: string;
   recipe_id: string;
+  ingredient_id: string | null;
   ingredient_name: string;
   quantity: number | null;
   unit: string | null;
   category: string | null;
   optional: boolean;
   image_url: string | null;
+  created_at: string;
+};
+
+export type RecipeStep = {
+  id: string;
+  recipe_id: string;
+  position: number;
+  description: string;
   created_at: string;
 };
 
@@ -94,12 +112,13 @@ export type MealPlanEntry = {
   planned_date: string;
   meal_slot: MealSlot;
   recipe_id: string;
+  servings_needed: number;
   notes: string | null;
   created_at: string;
 };
 
 export type MealPlanEntryWithRecipe = MealPlanEntry & {
-  recipe: Pick<Recipe, 'id' | 'code' | 'name' | 'category' | 'status'> | null;
+  recipe: Pick<Recipe, 'id' | 'code' | 'name' | 'category' | 'status' | 'servings'> | null;
 };
 
 export type DashboardSummary = {
@@ -136,6 +155,7 @@ export type RecipeUpsertInput = {
   cook_time_min?: number | null;
   cost_level?: string | null;
   notes?: string | null;
+  servings?: number;
   image_url?: string | null;
   source_type?: RecipeSourceType;
   source_url?: string | null;
@@ -144,12 +164,20 @@ export type RecipeUpsertInput = {
 export type RecipeIngredientInput = {
   id?: string;
   recipe_id: string;
+  ingredient_id?: string | null;
   ingredient_name: string;
   quantity?: number | null;
   unit?: string | null;
   category?: string | null;
   optional?: boolean;
   image_url?: string | null;
+};
+
+export type RecipeStepInput = {
+  id?: string;
+  recipe_id: string;
+  position: number;
+  description: string;
 };
 
 export type InventoryEntryInput = {
@@ -172,6 +200,7 @@ export type MealPlanEntryInput = {
   planned_date: string;
   meal_slot: MealSlot;
   recipe_id: string;
+  servings_needed?: number;
   notes?: string | null;
 };
 

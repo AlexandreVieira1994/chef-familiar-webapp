@@ -10,6 +10,7 @@ create table if not exists recipes (
   cook_time_min integer,
   cost_level text,
   notes text,
+  servings integer not null default 4,
   created_at timestamptz not null default now()
 );
 
@@ -18,21 +19,35 @@ alter table recipes add column if not exists last_feedback_at timestamptz;
 alter table recipes add column if not exists feedback_history jsonb not null default '[]'::jsonb;
 alter table recipes add column if not exists image_url text;
 alter table recipes add column if not exists source_url text;
-alter table recipes add column if not exists source_type text not null default 'manual';
-update recipes set source_type = 'importada' where nullif(trim(source_url), '') is not null;
-alter table recipes alter column source_url drop not null;
+alter table recipes add column if not exists source_type text not null default 'criada';
+alter table recipes add column if not exists servings integer not null default 4;
 alter table recipes drop constraint if exists recipes_source_url_required;
 alter table recipes drop constraint if exists recipes_source_type_valid;
 alter table recipes drop constraint if exists recipes_source_url_valid;
-alter table recipes add constraint recipes_source_type_valid check (source_type in ('manual', 'importada'));
+alter table recipes drop constraint if exists recipes_servings_positive;
+update recipes set source_type = 'importada' where nullif(trim(source_url), '') is not null;
+update recipes set source_type = 'criada' where source_type = 'manual';
+alter table recipes alter column source_url drop not null;
+alter table recipes alter column source_type set default 'criada';
+alter table recipes add constraint recipes_source_type_valid check (source_type in ('criada', 'importada'));
 alter table recipes add constraint recipes_source_url_valid check (
-  (source_type = 'manual' and (source_url is null or source_url ~* '^https?://'))
+  (source_type = 'criada' and (source_url is null or source_url ~* '^https?://'))
   or (source_type = 'importada' and source_url ~* '^https?://')
+);
+alter table recipes add constraint recipes_servings_positive check (servings > 0);
+
+create table if not exists ingredients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  category text,
+  default_unit text,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists recipe_ingredients (
   id uuid primary key default gen_random_uuid(),
   recipe_id uuid not null references recipes(id) on delete cascade,
+  ingredient_id uuid references ingredients(id) on delete restrict,
   ingredient_name text not null,
   quantity numeric,
   unit text,
@@ -42,6 +57,16 @@ create table if not exists recipe_ingredients (
 );
 
 alter table recipe_ingredients add column if not exists image_url text;
+alter table recipe_ingredients add column if not exists ingredient_id uuid references ingredients(id) on delete restrict;
+
+create table if not exists recipe_steps (
+  id uuid primary key default gen_random_uuid(),
+  recipe_id uuid not null references recipes(id) on delete cascade,
+  position integer not null,
+  description text not null,
+  created_at timestamptz not null default now(),
+  unique (recipe_id, position)
+);
 
 create table if not exists inventory_entries (
   id uuid primary key default gen_random_uuid(),
@@ -91,9 +116,14 @@ create table if not exists meal_plan_entries (
   planned_date date not null,
   meal_slot text not null,
   recipe_id uuid not null references recipes(id) on delete cascade,
+  servings_needed integer not null default 4,
   notes text,
   created_at timestamptz not null default now()
 );
+
+alter table meal_plan_entries add column if not exists servings_needed integer not null default 4;
+alter table meal_plan_entries drop constraint if exists meal_plan_entries_servings_needed_positive;
+alter table meal_plan_entries add constraint meal_plan_entries_servings_needed_positive check (servings_needed > 0);
 
 create table if not exists family_rules (
   id uuid primary key default gen_random_uuid(),
@@ -123,7 +153,9 @@ create table if not exists assistant_action_logs (
 );
 
 alter table recipes enable row level security;
+alter table ingredients enable row level security;
 alter table recipe_ingredients enable row level security;
+alter table recipe_steps enable row level security;
 alter table inventory_entries enable row level security;
 alter table shopping_lists enable row level security;
 alter table shopping_list_items enable row level security;
@@ -132,13 +164,23 @@ alter table family_rules enable row level security;
 alter table recipe_feedback enable row level security;
 alter table assistant_action_logs enable row level security;
 
+grant select, insert on ingredients to anon, authenticated;
+grant select, insert, update, delete on recipe_steps to anon, authenticated;
+
 drop policy if exists "public read recipes" on recipes;
 drop policy if exists "public insert recipes" on recipes;
 drop policy if exists "public update recipes" on recipes;
+drop policy if exists "public delete recipes" on recipes;
+drop policy if exists "public read ingredients" on ingredients;
+drop policy if exists "public insert ingredients" on ingredients;
 drop policy if exists "public read recipe ingredients" on recipe_ingredients;
 drop policy if exists "public insert recipe ingredients" on recipe_ingredients;
 drop policy if exists "public update recipe ingredients" on recipe_ingredients;
 drop policy if exists "public delete recipe ingredients" on recipe_ingredients;
+drop policy if exists "public read recipe steps" on recipe_steps;
+drop policy if exists "public insert recipe steps" on recipe_steps;
+drop policy if exists "public update recipe steps" on recipe_steps;
+drop policy if exists "public delete recipe steps" on recipe_steps;
 drop policy if exists "public read inventory" on inventory_entries;
 drop policy if exists "public insert inventory" on inventory_entries;
 drop policy if exists "public update inventory" on inventory_entries;
@@ -163,12 +205,67 @@ drop policy if exists "public insert assistant logs" on assistant_action_logs;
 drop policy if exists "public update assistant logs" on assistant_action_logs;
 
 create policy "public read recipes" on recipes for select using (true);
-create policy "public insert recipes" on recipes for insert with check (true);
-create policy "public update recipes" on recipes for update using (true) with check (true);
+create policy "public insert recipes" on recipes for insert with check (source_type = 'criada');
+create policy "public update recipes" on recipes for update using (source_type = 'criada') with check (source_type = 'criada');
+create policy "public delete recipes" on recipes for delete using (source_type = 'criada');
+create policy "public read ingredients" on ingredients for select using (true);
+create policy "public insert ingredients" on ingredients for insert with check (true);
 create policy "public read recipe ingredients" on recipe_ingredients for select using (true);
-create policy "public insert recipe ingredients" on recipe_ingredients for insert with check (true);
-create policy "public update recipe ingredients" on recipe_ingredients for update using (true) with check (true);
-create policy "public delete recipe ingredients" on recipe_ingredients for delete using (true);
+create policy "public insert recipe ingredients" on recipe_ingredients for insert with check (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_ingredients.recipe_id
+      and recipes.source_type = 'criada'
+  )
+);
+create policy "public update recipe ingredients" on recipe_ingredients for update using (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_ingredients.recipe_id
+      and recipes.source_type = 'criada'
+  )
+) with check (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_ingredients.recipe_id
+      and recipes.source_type = 'criada'
+  )
+);
+create policy "public delete recipe ingredients" on recipe_ingredients for delete using (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_ingredients.recipe_id
+      and recipes.source_type = 'criada'
+  )
+);
+create policy "public read recipe steps" on recipe_steps for select using (true);
+create policy "public insert recipe steps" on recipe_steps for insert with check (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_steps.recipe_id
+      and recipes.source_type = 'criada'
+  )
+);
+create policy "public update recipe steps" on recipe_steps for update using (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_steps.recipe_id
+      and recipes.source_type = 'criada'
+  )
+) with check (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_steps.recipe_id
+      and recipes.source_type = 'criada'
+  )
+);
+create policy "public delete recipe steps" on recipe_steps for delete using (
+  exists (
+    select 1 from recipes
+    where recipes.id = recipe_steps.recipe_id
+      and recipes.source_type = 'criada'
+  )
+);
 create policy "public read inventory" on inventory_entries for select using (true);
 create policy "public insert inventory" on inventory_entries for insert with check (true);
 create policy "public update inventory" on inventory_entries for update using (true) with check (true);
@@ -191,3 +288,24 @@ create policy "public insert recipe feedback" on recipe_feedback for insert with
 create policy "public read assistant logs" on assistant_action_logs for select using (true);
 create policy "public insert assistant logs" on assistant_action_logs for insert with check (true);
 create policy "public update assistant logs" on assistant_action_logs for update using (true) with check (true);
+
+insert into storage.buckets (id, name, public)
+values ('recipe-images', 'recipe-images', true)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "public upload recipe images" on storage.objects;
+drop policy if exists "public update recipe images" on storage.objects;
+drop policy if exists "public delete recipe images" on storage.objects;
+
+create policy "public upload recipe images"
+  on storage.objects for insert
+  with check (bucket_id = 'recipe-images');
+
+create policy "public update recipe images"
+  on storage.objects for update
+  using (bucket_id = 'recipe-images')
+  with check (bucket_id = 'recipe-images');
+
+create policy "public delete recipe images"
+  on storage.objects for delete
+  using (bucket_id = 'recipe-images');
