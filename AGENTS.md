@@ -94,7 +94,7 @@ No final de cada tarefa, o Codex deve responder com:
   `https://docs.expo.dev/versions/v54.0.0/`.
 - Prefer Expo Go-compatible libraries. Do not add custom native modules that
   require a development build unless the user explicitly approves that change.
-- After code or content changes, commit the work and push it to GitHub.
+- After code or content changes, write the commands for me to commit the work and push it to GitHub.
 - Do not reintroduce Next.js/Vercel web app files unless explicitly requested.
 - If local tooling is unavailable, record that limitation clearly and still
   verify with the available GitHub/Expo tooling when possible.
