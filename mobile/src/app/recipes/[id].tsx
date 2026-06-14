@@ -33,6 +33,7 @@ import { useAsyncResource } from '@/hooks/use-async-resource';
 import { formatDateTime, parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
 import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeStatusOptions, unitOptions } from '@/lib/options';
 import {
+  clearRecipeImage,
   getRecipe,
   listIngredients,
   listRecipeFeedback,
@@ -224,7 +225,6 @@ export default function RecipeDetailScreen() {
       try {
         await updateRecipeFeedback(currentRecipe.id, form.status, sanitizeOptionalText(form.feedback_notes));
         await recipeDetail.reload();
-        Alert.alert('Feedback atualizado', 'O feedback da receita foi guardado.');
       } catch (error) {
         Alert.alert('Erro ao guardar feedback', error instanceof Error ? error.message : 'Tenta novamente.');
       } finally {
@@ -266,6 +266,10 @@ export default function RecipeDetailScreen() {
     setSaving(true);
 
     try {
+      if (imageStoredValue !== currentRecipe.image_url) {
+        await clearRecipeImage(currentRecipe.id);
+      }
+
       await upsertRecipe({
         id: currentRecipe.id,
         code: currentRecipe.code,
@@ -302,7 +306,6 @@ export default function RecipeDetailScreen() {
       );
 
       await recipeDetail.reload();
-      Alert.alert('Receita atualizada', 'As alterações foram guardadas.');
     } catch (error) {
       Alert.alert('Erro ao guardar', error instanceof Error ? error.message : 'Tenta novamente.');
     } finally {

@@ -450,6 +450,18 @@ export async function upsertRecipe(input: RecipeUpsertInput) {
   );
 }
 
+export async function clearRecipeImage(id: string) {
+  const client = getClient();
+
+  return runQuery<Recipe[]>(
+    client
+      .from('recipes')
+      .update({ image_url: null })
+      .eq('id', id)
+      .select(recipeSelect),
+  );
+}
+
 export async function createRecipeWithDetails({
   recipe,
   steps,
