@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +34,7 @@ import { formatDateTime, parseOptionalNumber, sanitizeOptionalText } from '@/lib
 import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeStatusOptions, unitOptions } from '@/lib/options';
 import {
   clearRecipeImage,
+  deleteRecipe,
   getRecipe,
   listIngredients,
   listRecipeFeedback,
@@ -130,8 +131,10 @@ function normalizeIngredientDraftsForCompare(ingredients: RecipeIngredientDraft[
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<EditRecipeForm | null>(null);
   const [steps, setSteps] = useState<RecipeStepDraft[]>([createEmptyStep()]);
   const [ingredientDrafts, setIngredientDrafts] = useState<RecipeIngredientDraft[]>([]);
@@ -313,6 +316,34 @@ export default function RecipeDetailScreen() {
     }
   }
 
+  function confirmDeleteRecipe() {
+    if (!currentRecipe) return;
+
+    Alert.alert('Eliminar receita', `Queres eliminar "${currentRecipe.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () => void handleDeleteRecipe(),
+      },
+    ]);
+  }
+
+  async function handleDeleteRecipe() {
+    if (!currentRecipe) return;
+
+    setDeleting(true);
+
+    try {
+      await deleteRecipe(currentRecipe.id);
+      router.replace('/recipes' as never);
+    } catch (error) {
+      Alert.alert('Erro ao eliminar receita', error instanceof Error ? error.message : 'Tenta novamente.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <View style={styles.screenRoot}>
     <AppScreen refreshing={recipeDetail.refreshing} onRefresh={() => void recipeDetail.reload()}>
@@ -433,6 +464,16 @@ export default function RecipeDetailScreen() {
             ) : (
               <ThemedText themeColor="textSecondary">Ainda não existem feedbacks registados.</ThemedText>
             )}
+          </SectionCard>
+
+          <SectionHeader>Eliminar</SectionHeader>
+          <SectionCard>
+            <AppButton
+              label={deleting ? 'A eliminar...' : 'Eliminar receita'}
+              tone="danger"
+              onPress={confirmDeleteRecipe}
+              disabled={deleting || saving}
+            />
           </SectionCard>
         </>
       ) : null}

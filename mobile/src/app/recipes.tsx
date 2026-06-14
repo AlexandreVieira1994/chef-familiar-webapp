@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 
 import {
   AppButton,
@@ -30,7 +31,7 @@ import { Spacing } from '@/constants/theme';
 import { useAsyncResource } from '@/hooks/use-async-resource';
 import { parseOptionalNumber, sanitizeOptionalText } from '@/lib/format';
 import { costLevelOptions, recipeCategoryOptions, recipeDishTypeOptions, recipeStatusOptions } from '@/lib/options';
-import { createRecipeWithDetails, listIngredients, listRecipes } from '@/lib/services';
+import { createRecipeWithDetails, deleteRecipe, listIngredients, listRecipes } from '@/lib/services';
 import { Ingredient, Recipe, RecipeStatus } from '@/lib/types';
 
 type RecipesData = {
@@ -78,6 +79,7 @@ export default function RecipesScreen() {
   const router = useRouter();
   const [formVisible, setFormVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<CreateRecipeForm>(createEmptyForm);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [steps, setSteps] = useState<RecipeStepDraft[]>([createEmptyStep()]);
@@ -165,6 +167,43 @@ export default function RecipesScreen() {
     }
   }
 
+  function confirmDeleteRecipe(recipe: Recipe) {
+    Alert.alert('Eliminar receita', `Queres eliminar "${recipe.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () => void handleDeleteRecipe(recipe.id),
+      },
+    ]);
+  }
+
+  async function handleDeleteRecipe(recipeId: string) {
+    setDeletingId(recipeId);
+
+    try {
+      await deleteRecipe(recipeId);
+      await recipes.reload();
+    } catch (error) {
+      Alert.alert('Erro ao eliminar receita', error instanceof Error ? error.message : 'Tenta novamente.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function renderDeleteAction(recipe: Recipe) {
+    return (
+      <Pressable
+        disabled={deletingId === recipe.id}
+        onPress={() => confirmDeleteRecipe(recipe)}
+        style={({ pressed }) => [styles.deleteSwipeAction, pressed && styles.pressed, deletingId === recipe.id && styles.deleteDisabled]}>
+        <ThemedText type="smallBold" style={styles.deleteSwipeText}>
+          Eliminar
+        </ThemedText>
+      </Pressable>
+    );
+  }
+
   return (
     <AppScreen refreshing={recipes.refreshing} onRefresh={() => void recipes.reload()}>
       <View style={styles.header}>
@@ -198,25 +237,26 @@ export default function RecipesScreen() {
       {recipes.data?.recipes.length ? <SectionHeader>Lista</SectionHeader> : null}
       <View style={styles.recipeList}>
         {recipes.data?.recipes.map((recipe) => (
-          <Pressable
-            key={recipe.id}
-            style={({ pressed }) => [styles.recipeRow, pressed && styles.pressed]}
-            onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
-            <View style={styles.thumbnailShell}>
-              <RecipeImage uri={recipe.image_url} title={recipe.name} subtitle={recipe.category} variant="thumbnail" />
-            </View>
-            <View style={styles.recipeText}>
-              <ThemedText style={styles.recipeTitle}>{recipe.name}</ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.recipeSubtitle}>
-                {recipe.category} · {recipe.dish_type} · {recipe.servings} doses
-              </ThemedText>
-              <View style={styles.tags}>
-                <Tag>{recipe.source_type}</Tag>
-                <Tag>{recipe.status}</Tag>
-                {recipe.cost_level ? <Tag>{recipe.cost_level}</Tag> : null}
+          <Swipeable key={recipe.id} renderRightActions={() => renderDeleteAction(recipe)} overshootRight={false}>
+            <Pressable
+              style={({ pressed }) => [styles.recipeRow, pressed && styles.pressed]}
+              onPress={() => router.push(`/recipes/${recipe.id}` as never)}>
+              <View style={styles.thumbnailShell}>
+                <RecipeImage uri={recipe.image_url} title={recipe.name} subtitle={recipe.category} variant="thumbnail" />
               </View>
-            </View>
-          </Pressable>
+              <View style={styles.recipeText}>
+                <ThemedText style={styles.recipeTitle}>{recipe.name}</ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.recipeSubtitle}>
+                  {recipe.category} · {recipe.dish_type} · {recipe.servings} doses
+                </ThemedText>
+                <View style={styles.tags}>
+                  <Tag>{recipe.source_type}</Tag>
+                  <Tag>{recipe.status}</Tag>
+                  {recipe.cost_level ? <Tag>{recipe.cost_level}</Tag> : null}
+                </View>
+              </View>
+            </Pressable>
+          </Swipeable>
         ))}
       </View>
 
@@ -283,6 +323,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     backgroundColor: 'rgba(120, 120, 128, 0.12)',
+  },
+  deleteSwipeAction: {
+    width: 96,
+    minHeight: 96,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF3B30',
+  },
+  deleteSwipeText: {
+    color: '#FFFFFF',
+  },
+  deleteDisabled: {
+    opacity: 0.55,
   },
   thumbnailShell: {
     width: 72,

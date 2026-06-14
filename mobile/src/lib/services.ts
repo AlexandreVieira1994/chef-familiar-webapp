@@ -462,6 +462,12 @@ export async function clearRecipeImage(id: string) {
   );
 }
 
+export async function deleteRecipe(id: string) {
+  const client = getClient();
+
+  await runQuery<null>(client.from('recipes').delete().eq('id', id));
+}
+
 export async function createRecipeWithDetails({
   recipe,
   steps,
